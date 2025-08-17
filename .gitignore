@@ -1,0 +1,29 @@
+# Development files
+*.log
+.DS_Store
+node_modules/
+.env
+
+# Backup files
+*backup*
+backup-*
+
+# Temporary files
+*.tmp
+*.temp
+
+# IDE files
+.vscode/
+.idea/
+
+# Development scripts (keep source, ignore outputs)
+*.zip
+
+# Keep the essential extension files
+!manifest.json
+!background.js
+!content.js
+!inpage.js
+!lib/
+!icons/
+!*.md

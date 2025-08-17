@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "XOFE - X Orderflow Engine",
+  "version": "2.5.0",
+  "description": "Professional Solana trading extension for X/Twitter. View real-time prices and charts for cryptocurrency tokens.",
+  "action": {
+    "default_title": "XOFE: toggle on/off"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "homepage_url": "https://github.com/xofe/xofe-extension",
+  "short_name": "XOFE",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": ["https://lite-api.jup.ag/*", "https://ultra-api.jup.ag/*", "https://token.jup.ag/*", "https://api.geckoterminal.com/*"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://x.com/*", "https://twitter.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["inpage.js", "lib/web3.iife.min.js"],
+      "matches": ["https://x.com/*", "https://twitter.com/*"]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self';"
+  }
+}
