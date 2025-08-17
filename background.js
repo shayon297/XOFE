@@ -392,7 +392,10 @@ async function resolveToPoolAddress(tokenMint) {
   const cached = poolCache.get(tokenMint);
   if (cached && now - cached.timestamp < 300000) { // 5 min cache
     console.log("[chart] Using cached pool address for", tokenMint);
-    return cached.poolAddress;
+    return {
+      poolAddress: cached.poolAddress,
+      volume24h: cached.volume24h || 0
+    };
   }
   
   try {
@@ -440,13 +443,17 @@ async function resolveToPoolAddress(tokenMint) {
     
     console.log("[chart] Selected main pool:", poolAddress, "reserve:", reserveUsd);
     
-    // Cache the result
+    // Cache the result with volume data
     poolCache.set(tokenMint, {
       poolAddress: poolAddress,
+      volume24h: parseFloat(mainPool.attributes?.volume_usd?.h24 || '0'),
       timestamp: now
     });
     
-    return poolAddress;
+    return {
+      poolAddress: poolAddress,
+      volume24h: parseFloat(mainPool.attributes?.volume_usd?.h24 || '0')
+    };
     
   } catch (error) {
     console.error("[chart] Error resolving pool address:", error);
@@ -479,11 +486,12 @@ async function getChartData(tokenMint, interval = 'minute', nowMs = null) {
       console.log("[chart] Fetching chart data for token:", tokenMint);
       
       // Step 1: Resolve token mint to pool address
-      const poolAddress = await resolveToPoolAddress(tokenMint);
-      if (!poolAddress) {
+      const poolData = await resolveToPoolAddress(tokenMint);
+      if (!poolData || !poolData.poolAddress) {
         console.log("[chart] Could not resolve token to trading pool");
         return [];
       }
+      const poolAddress = poolData.poolAddress;
       
       // Step 2: Fetch OHLCV data
       const timeTo = Math.floor((nowMs ?? Date.now()) / 1000);
@@ -685,6 +693,21 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
               } catch (error) {
                 console.error("XOFE: Error in chart handler:", error);
                 sendResponse({ ok: false, error: error.message });
+              }
+              return;
+            }
+            
+            if (msg?.type === "MPT_GET_VOLUME") {
+              console.log("XOFE: Handling MPT_GET_VOLUME for", msg.address);
+              
+              try {
+                const poolData = await resolveToPoolAddress(msg.address);
+                const volume24h = poolData?.volume24h || 0;
+                console.log("XOFE: Volume data fetched:", volume24h);
+                sendResponse({ ok: true, volume24h: volume24h });
+              } catch (error) {
+                console.error("XOFE: Error in volume handler:", error);
+                sendResponse({ ok: false, error: error.message, volume24h: 0 });
               }
               return;
             }

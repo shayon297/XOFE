@@ -138,6 +138,59 @@
     `;
   }
 
+  // Update slippage display
+  function updateSlippageDisplay(quoteResponse) {
+    const slippageEl = tooltipEl?.querySelector("#mp-slippage");
+    const tradeInfoEl = tooltipEl?.querySelector("#mp-trade-info");
+    
+    if (!slippageEl || !tradeInfoEl) return;
+    
+    const priceImpact = parseFloat(quoteResponse?.priceImpactPct || '0');
+    
+    if (priceImpact > 0) {
+      slippageEl.textContent = `slippage: ${(priceImpact * 100).toFixed(2)}%`;
+      tradeInfoEl.style.display = "block";
+    } else {
+      slippageEl.textContent = "";
+    }
+  }
+  
+  // Fetch and display 24h volume
+  async function fetchVolumeData(address) {
+    const volumeEl = tooltipEl?.querySelector("#mp-volume");
+    const tradeInfoEl = tooltipEl?.querySelector("#mp-trade-info");
+    
+    if (!volumeEl || !tradeInfoEl) return;
+    
+    try {
+      const resp = await safeSendMessage({
+        type: "MPT_GET_VOLUME",
+        address: address
+      });
+      
+      if (resp?.ok && resp.volume24h > 0) {
+        const volume = resp.volume24h;
+        let formattedVolume;
+        
+        if (volume >= 1000000) {
+          formattedVolume = `$${(volume / 1000000).toFixed(1)}m`;
+        } else if (volume >= 1000) {
+          formattedVolume = `$${(volume / 1000).toFixed(0)}k`;
+        } else {
+          formattedVolume = `$${volume.toFixed(0)}`;
+        }
+        
+        volumeEl.textContent = `24h volume: ${formattedVolume}`;
+        tradeInfoEl.style.display = "block";
+      } else {
+        volumeEl.textContent = "";
+      }
+    } catch (error) {
+      console.log("XOFE: Volume fetch error:", error);
+      volumeEl.textContent = "";
+    }
+  }
+
   // Fetch and render chart data
   async function fetchAndRenderChart(address) {
     const chartContainer = tooltipEl?.querySelector('.mp-sparkline');
@@ -497,6 +550,10 @@
             Assuming 6 decimals
           </div>
         </div>
+        <div id="mp-trade-info" style="margin-bottom:8px;font-size:11px;opacity:0.8;display:none;">
+          <div id="mp-slippage" style="margin-bottom:2px;"></div>
+          <div id="mp-volume" style="margin-bottom:2px;"></div>
+        </div>
         <div style="display:flex;gap:8px;">
           <button id="mp-buy" style="width:100%;padding:12px;border-radius:6px;border:0;cursor:pointer;background:#ffffff;color:#000000;font-weight:600;font-size:13px;">
             Buy
@@ -569,6 +626,9 @@
     setTimeout(() => {
       fetchAndRenderChart(mint);
     }, 200);
+    
+    // Fetch volume data
+    fetchVolumeData(mint);
   }
 
   async function fetchTokenInfo(mint) {
@@ -942,6 +1002,9 @@
         
         // Simple display - no fallback logic needed
         outputEl.textContent = `${humanOutput} $${(currentTokenInfo?.symbol || "UNKNOWN").toUpperCase()}`;
+        
+        // Update slippage display
+        updateSlippageDisplay(resp.quoteResponse);
         
         // Show decimals note if using fallback
         const decimalsNote = tooltipEl?.querySelector("#mp-decimals-note");
