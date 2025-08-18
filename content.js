@@ -155,6 +155,41 @@
     }
   }
   
+  // Fetch and display market cap
+  async function fetchMarketCap(address) {
+    const marketCapEl = tooltipEl?.querySelector("#mp-market-cap");
+    if (!marketCapEl) return;
+    
+    try {
+      const resp = await safeSendMessage({
+        type: "MPT_GET_MARKET_CAP",
+        address: address
+      });
+      
+      if (resp?.ok && resp.marketCap > 0) {
+        const marketCap = resp.marketCap;
+        let formattedMarketCap;
+        
+        if (marketCap >= 1000000000) {
+          formattedMarketCap = `(mcap: $${(marketCap / 1000000000).toFixed(1)}b)`;
+        } else if (marketCap >= 1000000) {
+          formattedMarketCap = `(mcap: $${(marketCap / 1000000).toFixed(1)}m)`;
+        } else if (marketCap >= 1000) {
+          formattedMarketCap = `(mcap: $${(marketCap / 1000).toFixed(0)}k)`;
+        } else {
+          formattedMarketCap = `(mcap: $${marketCap.toFixed(0)})`;
+        }
+        
+        marketCapEl.textContent = formattedMarketCap;
+      } else {
+        marketCapEl.textContent = "";
+      }
+    } catch (error) {
+      console.log("XOFE: Market cap fetch error:", error);
+      marketCapEl.textContent = "";
+    }
+  }
+
   // Fetch and display 24h volume
   async function fetchVolumeData(address) {
     const volumeEl = tooltipEl?.querySelector("#mp-volume");
@@ -703,12 +738,15 @@
         
         priceEl.innerHTML = `
           <div style="margin-bottom:6px;">
-            <strong>USD:</strong> $${formatUSD(usdPrice)}
+            <strong>USD:</strong> $${formatUSD(usdPrice)} <span id="mp-market-cap" style="opacity:0.7;font-size:11px;"></span>
           </div>
           <div>
             <strong>SOL:</strong> ${formatSOL(solPrice)}
           </div>
         `;
+        
+        // Fetch market cap data
+        fetchMarketCap(mint);
       } else {
         console.log("XOFE: Response not ok:", resp);
         priceEl.textContent = "Price unavailable";

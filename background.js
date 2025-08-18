@@ -461,6 +461,38 @@ async function resolveToPoolAddress(tokenMint) {
   }
 }
 
+// Get market cap data from GeckoTerminal
+async function getMarketCap(tokenMint) {
+  try {
+    console.log("[mcap] Fetching market cap for token:", tokenMint);
+    const url = `https://api.geckoterminal.com/api/v2/networks/solana/tokens/${tokenMint}`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'accept': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      console.log("[mcap] GeckoTerminal token lookup failed:", response.status);
+      return 0;
+    }
+    
+    const data = await response.json();
+    console.log("[mcap] GeckoTerminal token response:", data);
+    
+    // Try to get market cap from token attributes
+    const marketCapUsd = parseFloat(data.data?.attributes?.market_cap_usd || '0');
+    console.log("[mcap] Extracted market cap:", marketCapUsd);
+    
+    return marketCapUsd;
+    
+  } catch (error) {
+    console.error("[mcap] Error fetching market cap:", error);
+    return 0;
+  }
+}
+
 // GeckoTerminal 24h OHLCV chart data fetcher
 async function getChartData(tokenMint, interval = 'minute', nowMs = null) {
   const cacheKey = `${tokenMint}_${interval}`;
@@ -708,6 +740,20 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
               } catch (error) {
                 console.error("XOFE: Error in volume handler:", error);
                 sendResponse({ ok: false, error: error.message, volume24h: 0 });
+              }
+              return;
+            }
+            
+            if (msg?.type === "MPT_GET_MARKET_CAP") {
+              console.log("XOFE: Handling MPT_GET_MARKET_CAP for", msg.address);
+              
+              try {
+                const marketCap = await getMarketCap(msg.address);
+                console.log("XOFE: Market cap data fetched:", marketCap);
+                sendResponse({ ok: true, marketCap: marketCap });
+              } catch (error) {
+                console.error("XOFE: Error in market cap handler:", error);
+                sendResponse({ ok: false, error: error.message, marketCap: 0 });
               }
               return;
             }
