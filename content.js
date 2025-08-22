@@ -1284,4 +1284,306 @@
     statusEl.style.backdropFilter = "blur(5px)";
     statusEl.style.display = "block";
   }
+
+  // Initialize embedded wallet
+  async function initializeWallet() {
+    try {
+      // Initialize wallet module
+      if (window.XOFEWallet) {
+        await window.XOFEWallet.init();
+        console.log("XOFE: Wallet module initialized");
+        
+        // Inject wallet UI into X sidebar
+        injectWalletUI();
+      }
+    } catch (error) {
+      console.error("XOFE: Error initializing wallet:", error);
+    }
+  }
+
+  // Inject wallet tab into X sidebar
+  function injectWalletUI() {
+    // Find X's navigation sidebar
+    const sidebar = document.querySelector('[aria-label="Primary Navigation"]') || 
+                   document.querySelector('nav[role="navigation"]') ||
+                   document.querySelector('[data-testid="sidebarColumn"]');
+    
+    if (!sidebar) {
+      console.log("XOFE: Sidebar not found, retrying in 2s...");
+      setTimeout(injectWalletUI, 2000);
+      return;
+    }
+
+    // Check if wallet tab already exists
+    if (document.getElementById('xofe-wallet-tab')) {
+      return;
+    }
+
+    console.log("XOFE: Injecting wallet tab into sidebar");
+
+    // Create wallet tab element
+    const walletTab = document.createElement('div');
+    walletTab.id = 'xofe-wallet-tab';
+    walletTab.innerHTML = `
+      <div style="
+        padding: 12px 16px;
+        margin: 4px 0;
+        border-radius: 24px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        display: flex;
+        align-items: center;
+        color: rgb(231, 233, 234);
+        font-size: 20px;
+        font-weight: 400;
+        line-height: 24px;
+        min-height: 56px;
+      " 
+      onmouseover="this.style.backgroundColor='rgba(231, 233, 234, 0.1)'"
+      onmouseout="this.style.backgroundColor='transparent'"
+      onclick="window.showXOFEWallet()">
+        <div style="
+          width: 26.25px;
+          height: 26.25px;
+          margin-right: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: linear-gradient(45deg, #00ff00, #ffff00);
+          border-radius: 6px;
+          font-size: 14px;
+          font-weight: bold;
+          color: #000;
+        ">₿</div>
+        <span>Wallet</span>
+      </div>
+    `;
+
+    // Find the best insertion point in sidebar
+    const navItems = sidebar.querySelector('nav') || sidebar;
+    const firstNavItem = navItems.querySelector('a') || navItems.firstElementChild;
+    
+    if (firstNavItem) {
+      firstNavItem.parentNode.insertBefore(walletTab, firstNavItem.nextSibling);
+    } else {
+      navItems.appendChild(walletTab);
+    }
+
+    console.log("XOFE: Wallet tab injected successfully");
+  }
+
+  // Show wallet interface
+  window.showXOFEWallet = function() {
+    console.log("XOFE: Opening wallet interface");
+    showWalletModal();
+  };
+
+  // Create and show wallet modal
+  function showWalletModal() {
+    // Remove existing modal if present
+    const existing = document.getElementById('xofe-wallet-modal');
+    if (existing) {
+      existing.remove();
+    }
+
+    const modal = document.createElement('div');
+    modal.id = 'xofe-wallet-modal';
+    modal.innerHTML = `
+      <div style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+      " onclick="this.remove()">
+        <div style="
+          background: rgb(21, 32, 43);
+          border-radius: 16px;
+          padding: 24px;
+          width: 400px;
+          max-width: 90vw;
+          max-height: 80vh;
+          overflow-y: auto;
+          color: rgb(231, 233, 234);
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+        " onclick="event.stopPropagation()">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+            <h2 style="margin: 0; font-size: 24px; font-weight: 700;">XOFE Wallet</h2>
+            <button onclick="document.getElementById('xofe-wallet-modal').remove()" style="
+              background: none;
+              border: none;
+              color: rgb(231, 233, 234);
+              font-size: 24px;
+              cursor: pointer;
+              opacity: 0.7;
+            ">×</button>
+          </div>
+          
+          <div id="wallet-content">
+            <div style="text-align: center; padding: 20px;">
+              <div style="margin-bottom: 16px;">
+                <div style="font-size: 48px; margin-bottom: 8px;">💼</div>
+                <h3 style="margin: 0 0 8px 0;">No Wallet Found</h3>
+                <p style="margin: 0; opacity: 0.7; font-size: 14px;">Create a secure wallet to start trading</p>
+              </div>
+              
+              <button id="create-wallet-btn" style="
+                background: linear-gradient(45deg, #00ff00, #ffff00);
+                color: #000;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 24px;
+                font-weight: 600;
+                cursor: pointer;
+                margin: 8px;
+                width: 100%;
+                font-size: 16px;
+              ">Create Wallet</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+    
+    // Bind wallet actions
+    bindWalletActions();
+  }
+
+  // Bind wallet button actions
+  function bindWalletActions() {
+    const createBtn = document.getElementById('create-wallet-btn');
+    if (createBtn) {
+      createBtn.addEventListener('click', handleCreateWallet);
+    }
+  }
+
+  // Handle wallet creation
+  async function handleCreateWallet() {
+    const createBtn = document.getElementById('create-wallet-btn');
+    if (createBtn) {
+      createBtn.textContent = 'Creating...';
+      createBtn.disabled = true;
+    }
+
+    try {
+      const result = await window.XOFEWallet.create();
+      
+      if (result.success) {
+        console.log("XOFE: Wallet created:", result.address);
+        showWalletDashboard(result.address);
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error("XOFE: Wallet creation failed:", error);
+      if (createBtn) {
+        createBtn.textContent = 'Create Wallet';
+        createBtn.disabled = false;
+      }
+      alert('Wallet creation failed: ' + error.message);
+    }
+  }
+
+  // Show wallet dashboard after creation
+  function showWalletDashboard(address) {
+    const content = document.getElementById('wallet-content');
+    if (!content) return;
+
+    content.innerHTML = `
+      <div style="text-align: center; margin-bottom: 24px;">
+        <div style="font-size: 32px; margin-bottom: 8px;">✅</div>
+        <h3 style="margin: 0 0 8px 0;">Wallet Created!</h3>
+        <p style="margin: 0; opacity: 0.7; font-size: 12px; word-break: break-all;">${address}</p>
+      </div>
+      
+      <div style="background: rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+          <span>USDC Balance:</span>
+          <span style="font-weight: 600;">$0.00</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; opacity: 0.7; font-size: 14px;">
+          <span>Portfolio Value:</span>
+          <span>$0.00</span>
+        </div>
+      </div>
+      
+      <button id="fund-wallet-btn" style="
+        background: #1d9bf0;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 24px;
+        font-weight: 600;
+        cursor: pointer;
+        margin: 4px 0;
+        width: 100%;
+        font-size: 16px;
+      ">Fund with USDC</button>
+      
+      <button onclick="alert('Portfolio view coming soon!')" style="
+        background: transparent;
+        color: rgb(231, 233, 234);
+        border: 1px solid rgba(231, 233, 234, 0.3);
+        padding: 12px 24px;
+        border-radius: 24px;
+        font-weight: 600;
+        cursor: pointer;
+        margin: 4px 0;
+        width: 100%;
+        font-size: 16px;
+      ">View Portfolio</button>
+    `;
+
+    // Bind fund wallet action
+    const fundBtn = document.getElementById('fund-wallet-btn');
+    if (fundBtn) {
+      fundBtn.addEventListener('click', handleFundWallet);
+    }
+  }
+
+  // Handle wallet funding
+  async function handleFundWallet() {
+    const fundBtn = document.getElementById('fund-wallet-btn');
+    if (fundBtn) {
+      fundBtn.textContent = 'Funding...';
+      fundBtn.disabled = true;
+    }
+
+    try {
+      // For now, simulate funding
+      const result = await window.XOFEWallet.fund(10);
+      
+      if (result.success) {
+        console.log("XOFE: Wallet funded, new balance:", result.newBalance);
+        alert(`Wallet funded with $10 USDC! New balance: $${result.newBalance}`);
+        
+        // Update the balance display
+        const balanceEl = document.querySelector('#wallet-content [style*="font-weight: 600"]');
+        if (balanceEl) {
+          balanceEl.textContent = `$${result.newBalance.toFixed(2)}`;
+        }
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error("XOFE: Wallet funding failed:", error);
+      alert('Wallet funding failed: ' + error.message);
+    } finally {
+      if (fundBtn) {
+        fundBtn.textContent = 'Fund with USDC';
+        fundBtn.disabled = false;
+      }
+    }
+  }
+
+  // Initialize wallet functionality when content script loads
+  setTimeout(initializeWallet, 2000);
+
 })();

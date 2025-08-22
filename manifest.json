@@ -14,7 +14,7 @@
   "homepage_url": "https://github.com/xofe/xofe-extension",
   "short_name": "XOFE",
   "permissions": ["storage", "activeTab", "scripting"],
-  "host_permissions": ["https://lite-api.jup.ag/*", "https://ultra-api.jup.ag/*", "https://token.jup.ag/*", "https://api.geckoterminal.com/*"],
+  "host_permissions": ["https://lite-api.jup.ag/*", "https://ultra-api.jup.ag/*", "https://token.jup.ag/*", "https://api.geckoterminal.com/*", "https://api.turnkey.com/*", "https://api.coinbase.com/*"],
   "background": {
     "service_worker": "background.js",
     "type": "module"
@@ -22,7 +22,7 @@
   "content_scripts": [
     {
       "matches": ["https://x.com/*", "https://twitter.com/*"],
-      "js": ["content.js"],
+      "js": ["wallet.js", "content.js"],
       "run_at": "document_idle"
     }
   ],
