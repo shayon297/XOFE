@@ -6,11 +6,7 @@ module.exports = {
   entry: './src/turnkey-bundle.js',
   output: {
     filename: 'turnkey.bundle.js',
-    path: path.resolve(__dirname, 'lib'),
-    library: {
-      name: 'TurnkeySDK',
-      type: 'window'
-    }
+    path: path.resolve(__dirname, 'lib')
   },
   resolve: {
     fallback: {
