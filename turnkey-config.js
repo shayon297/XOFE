@@ -25,7 +25,7 @@ export const TURNKEY_CONFIG = {
   rootUser: {
     id: "5c7356f3-736b-48ff-bd1f-67abed17a68e",
     email: "shayon@multicoin.capital",
-    authenticatorId: "adcf7daa-2839-4f8a-808b-5781d1d4abc4"
+    authenticatorId: "YtNWbwuGYBjDmwSoltG_BmL8UaQ"
   }
 };
 
