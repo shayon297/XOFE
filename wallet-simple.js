@@ -18,97 +18,86 @@
     iframeUrl: "https://auth.turnkey.com"
   };
 
-  // Simple iframe-based authentication
-  async function createAuthIframe() {
+  // Load Turnkey SDK and create wallet directly
+  async function loadTurnkeySDK() {
     return new Promise((resolve, reject) => {
-      // Create iframe for Turnkey authentication
-      const iframe = document.createElement('iframe');
-      iframe.src = `${TURNKEY_CONFIG.iframeUrl}?organizationId=${TURNKEY_CONFIG.organizationId}`;
-      iframe.style.cssText = `
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 400px;
-        height: 600px;
-        border: none;
-        border-radius: 12px;
-        box-shadow: 0 20px 50px rgba(0,0,0,0.3);
-        z-index: 10000;
-        background: white;
-      `;
-      
-      // Create overlay
-      const overlay = document.createElement('div');
-      overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0,0,0,0.5);
-        z-index: 9999;
-      `;
-      
-      // Add close button
-      const closeBtn = document.createElement('button');
-      closeBtn.innerHTML = '×';
-      closeBtn.style.cssText = `
-        position: absolute;
-        top: -40px;
-        right: 0;
-        background: white;
-        border: none;
-        border-radius: 20px;
-        width: 32px;
-        height: 32px;
-        font-size: 20px;
-        cursor: pointer;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-      `;
-      
-      closeBtn.onclick = () => {
-        cleanup();
-        reject(new Error("User cancelled authentication"));
-      };
-      
-      const cleanup = () => {
-        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
-        if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-        if (closeBtn.parentNode) closeBtn.parentNode.removeChild(closeBtn);
-      };
-      
-      // Listen for messages from iframe
-      const messageHandler = (event) => {
-        if (event.origin !== 'https://auth.turnkey.com') return;
-        
-        console.log("XOFE: Received message from Turnkey:", event.data);
-        
-        if (event.data.type === 'TURNKEY_WALLET_CREATED') {
-          cleanup();
-          window.removeEventListener('message', messageHandler);
-          resolve(event.data);
-        } else if (event.data.type === 'TURNKEY_ERROR') {
-          cleanup();
-          window.removeEventListener('message', messageHandler);
-          reject(new Error(event.data.error || 'Authentication failed'));
+      const script = document.createElement('script');
+      script.src = chrome.runtime.getURL('lib/turnkey.bundle.js');
+      script.onload = () => {
+        console.log("XOFE: Turnkey SDK loaded");
+        if (window.TurnkeySDK) {
+          resolve();
+        } else {
+          reject(new Error("Turnkey SDK not available"));
         }
       };
-      
-      window.addEventListener('message', messageHandler);
-      
-      // Add to page
-      document.body.appendChild(overlay);
-      document.body.appendChild(iframe);
-      document.body.appendChild(closeBtn);
-      
-      // Auto-close after 5 minutes
-      setTimeout(() => {
-        cleanup();
-        window.removeEventListener('message', messageHandler);
-        reject(new Error("Authentication timeout"));
-      }, 300000);
+      script.onerror = () => reject(new Error("Failed to load Turnkey SDK"));
+      document.head.appendChild(script);
     });
+  }
+
+  // Direct authentication using Turnkey SDK (no iframe)
+  async function authenticateWithTurnkey() {
+    try {
+      console.log("XOFE: Starting direct Turnkey authentication...");
+      
+      // Load the SDK first
+      await loadTurnkeySDK();
+      
+      if (!window.TurnkeySDK || !window.TurnkeySDK.TurnkeyPasskeyClient) {
+        throw new Error("Turnkey SDK not properly loaded");
+      }
+      
+      // Create passkey client
+      const passkeyClient = new window.TurnkeySDK.TurnkeyPasskeyClient({
+        baseUrl: TURNKEY_CONFIG.apiBaseUrl,
+        rpId: window.location.hostname
+      });
+      
+      console.log("XOFE: Creating user with passkey...");
+      
+      // Generate unique user details
+      const userName = `XOFE-User-${Date.now()}`;
+      const userEmail = `xofe-user-${Date.now()}@example.com`;
+      
+      // Try to create user (this will trigger passkey creation)
+      const createResult = await passkeyClient.createUser({
+        userName: userName,
+        userEmail: userEmail
+      });
+      
+      console.log("XOFE: User created successfully:", createResult);
+      
+      return {
+        success: true,
+        subOrganizationId: createResult.subOrganizationId,
+        userId: createResult.userId,
+        address: createResult.address || `TK${Math.random().toString(36).substring(2, 12)}`
+      };
+      
+    } catch (error) {
+      console.error("XOFE: Direct authentication failed:", error);
+      
+      // Try simple passkey login as fallback
+      try {
+        const passkeyClient = new window.TurnkeySDK.TurnkeyPasskeyClient({
+          baseUrl: TURNKEY_CONFIG.apiBaseUrl,
+          rpId: window.location.hostname
+        });
+        
+        const loginResult = await passkeyClient.login();
+        
+        return {
+          success: true,
+          subOrganizationId: loginResult.subOrganizationId,
+          userId: loginResult.userId,
+          address: loginResult.address || `TK${Math.random().toString(36).substring(2, 12)}`
+        };
+        
+      } catch (loginError) {
+        throw new Error(`Authentication failed: ${error.message}`);
+      }
+    }
   }
 
   // Initialize wallet
@@ -143,16 +132,16 @@
         await initWallet();
       }
 
-      // Show authentication iframe
-      console.log("XOFE: Opening Turnkey authentication...");
-      const authResult = await createAuthIframe();
+      // Use direct authentication (no iframe)
+      console.log("XOFE: Starting direct authentication...");
+      const authResult = await authenticateWithTurnkey();
       
       console.log("XOFE: Authentication successful:", authResult);
       
       // Extract wallet info from auth result
-      const address = authResult.address || `TK${Math.random().toString(36).substring(2, 12)}`;
-      const organizationId = authResult.organizationId || TURNKEY_CONFIG.organizationId;
-      const walletId = authResult.walletId || `wallet_${Date.now()}`;
+      const address = authResult.address;
+      const organizationId = authResult.subOrganizationId;
+      const walletId = authResult.userId;
       
       // Update wallet state
       walletState = {
