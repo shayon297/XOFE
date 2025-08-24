@@ -7,11 +7,21 @@
     address: null,
     balance: 0,
     isInitialized: false,
-    turnkeyClient: null
+    subOrganizationId: null,
+    walletId: null,
+    userId: null
   };
 
-  let turnkeySDK = null;
-  let turnkeySigner = null;
+  let turnkeyClient = null;
+  let passkeyClient = null;
+
+  // Turnkey configuration
+  const TURNKEY_CONFIG = {
+    defaultOrganizationId: "7df2c24f-4185-40e7-b16b-68600a5659c8",
+    apiBaseUrl: "https://api.turnkey.com",
+    rpId: window.location.hostname,
+    iframeUrl: "https://auth.turnkey.com"
+  };
 
   // Initialize wallet module
   async function initWallet() {
@@ -54,20 +64,12 @@
       script.onload = () => {
         console.log("XOFE: Turnkey bundle script loaded");
         console.log("XOFE: window.TurnkeySDK available:", !!window.TurnkeySDK);
+        
         if (window.TurnkeySDK) {
           console.log("XOFE: TurnkeySDK properties:", Object.keys(window.TurnkeySDK));
-        }
-        
-        if (window.TurnkeySDK && window.TurnkeySDK.Turnkey) {
-          turnkeySDK = window.TurnkeySDK.Turnkey;
-          turnkeySigner = window.TurnkeySDK.TurnkeySigner;
-          console.log("XOFE: Turnkey SDK with Solana support loaded successfully");
-          console.log("XOFE: Turnkey class:", turnkeySDK);
           resolve();
         } else {
-          const error = "Turnkey SDK or TurnkeySigner not found on window";
-          console.error("XOFE:", error);
-          reject(new Error(error));
+          reject(new Error("TurnkeySDK not found on window"));
         }
       };
       script.onerror = () => reject(new Error("Failed to load Turnkey SDK"));
@@ -77,79 +79,28 @@
 
   // Initialize Turnkey client
   async function initTurnkeyClient() {
-    if (!turnkeySDK) {
+    if (!window.TurnkeySDK) {
       throw new Error("Turnkey SDK not loaded");
     }
 
     try {
-      // Your actual Turnkey configuration
-      const turnkeyConfig = {
-        apiBaseUrl: "https://api.turnkey.com",
-        defaultOrganizationId: "7df2c24f-4185-40e7-b16b-68600a5659c8",
-        rpId: window.location.hostname, // Use current domain (x.com or twitter.com)
-        iframeUrl: "https://auth.turnkey.com",
-      };
-
-      walletState.turnkeyClient = new turnkeySDK(turnkeyConfig);
-      console.log("XOFE: Turnkey client initialized with config:", turnkeyConfig);
+      console.log("XOFE: Creating Turnkey Browser Client...");
       
+      // Initialize the browser client
+      turnkeyClient = new window.TurnkeySDK.TurnkeyBrowserClient({
+        baseUrl: TURNKEY_CONFIG.apiBaseUrl
+      });
+      
+      // Initialize passkey client for authentication
+      passkeyClient = new window.TurnkeySDK.TurnkeyPasskeyClient({
+        baseUrl: TURNKEY_CONFIG.apiBaseUrl,
+        rpId: TURNKEY_CONFIG.rpId
+      });
+      
+      console.log("XOFE: Turnkey clients created successfully");
     } catch (error) {
       console.error("XOFE: Failed to initialize Turnkey client:", error);
       throw error;
-    }
-  }
-
-  // Authenticate user with Turnkey (using passkeys)
-  async function authenticateUser() {
-    try {
-      console.log("XOFE: Starting Turnkey authentication...");
-      console.log("XOFE: walletState.turnkeyClient available:", !!walletState.turnkeyClient);
-      
-      if (!walletState.turnkeyClient) {
-        throw new Error("Turnkey client not initialized");
-      }
-
-      console.log("XOFE: Turnkey client methods:", Object.getOwnPropertyNames(walletState.turnkeyClient));
-      
-      // Check if passkeyClient method exists
-      if (typeof walletState.turnkeyClient.passkeyClient !== 'function') {
-        throw new Error("passkeyClient method not available on Turnkey client");
-      }
-
-      // Get passkey client for authentication
-      console.log("XOFE: Getting passkey client...");
-      const passkeyClient = walletState.turnkeyClient.passkeyClient();
-      console.log("XOFE: Passkey client created:", !!passkeyClient);
-      
-      // Try to login with existing passkey
-      console.log("XOFE: Attempting passkey login...");
-      const loginResult = await passkeyClient.login();
-      
-      console.log("XOFE: Passkey login successful:", loginResult);
-      return { success: true, client: passkeyClient };
-      
-    } catch (error) {
-      console.log("XOFE: Passkey login failed, attempting registration:", error);
-      console.log("XOFE: Error details:", error.message, error.stack);
-      
-      try {
-        // If login fails, try to register a new passkey
-        const passkeyClient = walletState.turnkeyClient.passkeyClient();
-        
-        console.log("XOFE: Creating new user with passkey...");
-        const registrationResult = await passkeyClient.createUser({
-          userName: "XOFE User",
-          userEmail: `xofe-user-${Date.now()}@example.com` // Temporary email
-        });
-        
-        console.log("XOFE: Passkey registration successful:", registrationResult);
-        return { success: true, client: passkeyClient, isNewUser: true };
-        
-      } catch (registrationError) {
-        console.error("XOFE: Passkey registration also failed:", registrationError);
-        console.error("XOFE: Registration error details:", registrationError.message, registrationError.stack);
-        return { success: false, error: registrationError.message };
-      }
     }
   }
 
@@ -158,127 +109,171 @@
     try {
       console.log("XOFE: Creating new Solana wallet with Turnkey...");
       
-      if (!walletState.turnkeyClient) {
-        console.log("XOFE: Turnkey client not initialized, falling back to demo mode...");
-        return createDemoWallet();
+      if (!passkeyClient) {
+        throw new Error("Turnkey passkey client not initialized");
       }
 
+      // Step 1: Get authentication credentials (email/passkey)
       console.log("XOFE: Authenticating user...");
       const authResult = await authenticateUser();
       
       if (!authResult.success) {
-        console.log("XOFE: Authentication failed, falling back to demo mode");
-        return createDemoWallet();
+        throw new Error(`Authentication failed: ${authResult.error}`);
       }
 
-      console.log("XOFE: User authenticated, creating Solana wallet...");
-      const passkeyClient = authResult.client;
+      // Step 2: Create sub-organization for the user
+      console.log("XOFE: Creating sub-organization...");
+      const subOrgResult = await createSubOrganization(authResult);
       
-      try {
-        // Create a sub-organization for the user (simplified flow)
-        const subOrgName = `user_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-        
-        console.log("XOFE: Creating sub-organization:", subOrgName);
-        
-        // Create wallet using authenticated passkey client
-        const walletResponse = await passkeyClient.createWallet({
-          walletName: `XOFE_Solana_${Date.now()}`,
-          accounts: [{
-            curve: "CURVE_ED25519",
-            pathFormat: "PATH_FORMAT_BIP32", 
-            path: "m/44'/501'/0'/0'", // Standard Solana derivation path
-            addressFormat: "ADDRESS_FORMAT_SOLANA"
-          }]
-        });
-
-        console.log("XOFE: Wallet creation response:", walletResponse);
-        
-        if (walletResponse && walletResponse.walletId) {
-          const walletId = walletResponse.walletId;
-          const addresses = walletResponse.addresses || [];
-          const solanaAddress = addresses.find(addr => addr.format === "ADDRESS_FORMAT_SOLANA")?.address;
-          
-          if (solanaAddress) {
-            const newWallet = {
-              address: solanaAddress,
-              walletId: walletId,
-              isCreated: true,
-              balance: 0,
-              createdAt: Date.now(),
-              turnkeyWalletId: walletId
-            };
-
-            walletState = { ...walletState, ...newWallet };
-            
-            // Store wallet data
-            await chrome.storage.local.set({ xofe_wallet_data: walletState });
-            
-            console.log("XOFE: Real Solana wallet created successfully:", solanaAddress);
-            return { success: true, address: solanaAddress };
-          } else {
-            throw new Error("No Solana address found in wallet response");
-          }
-        } else {
-          throw new Error("Invalid wallet creation response");
-        }
-        
-      } catch (turnkeyError) {
-        console.log("XOFE: Turnkey API error (likely auth required):", turnkeyError);
-        console.log("XOFE: Falling back to demo wallet...");
-        return createDemoWallet();
+      if (!subOrgResult.success) {
+        throw new Error(`Sub-organization creation failed: ${subOrgResult.error}`);
       }
-      
-    } catch (error) {
-      console.error("XOFE: Error creating wallet:", error);
-      return { success: false, error: error.message };
-    }
-  }
 
-  // Create a demo wallet when Turnkey isn't available
-  async function createDemoWallet() {
-    try {
-      console.log("XOFE: Creating demo Solana wallet...");
+      // Step 3: Extract wallet details
+      const { subOrganizationId, walletId, addresses } = subOrgResult;
+      const solanaAddress = addresses.find(addr => addr.addressFormat === 'ADDRESS_FORMAT_SOLANA')?.address;
       
-      const simulatedWallet = {
-        address: generateSolanaAddress(),
+      if (!solanaAddress) {
+        throw new Error("Failed to create Solana address");
+      }
+
+      // Step 4: Save wallet state
+      walletState = {
+        ...walletState,
         isCreated: true,
-        balance: 0,
-        createdAt: Date.now(),
-        isSimulated: true,
-        note: "Demo wallet - Real Turnkey integration requires authentication setup"
+        address: solanaAddress,
+        subOrganizationId: subOrganizationId,
+        walletId: walletId,
+        userId: authResult.userId
       };
 
-      walletState = { ...walletState, ...simulatedWallet };
-      
-      // Store wallet data
+      // Save to storage
       await chrome.storage.local.set({ xofe_wallet_data: walletState });
       
-      console.log("XOFE: Demo Solana wallet created:", simulatedWallet.address);
-      return { 
-        success: true, 
-        address: simulatedWallet.address,
-        isSimulated: true,
-        message: "Demo wallet created. Real Turnkey integration requires authentication setup."
+      console.log("XOFE: Wallet created successfully:", {
+        address: solanaAddress,
+        subOrganizationId: subOrganizationId
+      });
+
+      return {
+        success: true,
+        address: solanaAddress,
+        message: `Wallet created successfully! Address: ${solanaAddress.slice(0, 8)}...${solanaAddress.slice(-8)}`
       };
+
     } catch (error) {
-      console.error("XOFE: Error creating demo wallet:", error);
-      return { success: false, error: error.message };
+      console.error("XOFE: Error creating wallet:", error);
+      
+      // Fallback to demo mode
+      const demoAddress = "DEMO" + Math.random().toString(36).substring(2, 15);
+      
+      walletState = {
+        ...walletState,
+        isCreated: true,
+        address: demoAddress
+      };
+
+      return {
+        success: false,
+        address: demoAddress,
+        message: "⚠️ Demo Mode: Demo wallet created. Real Turnkey integration requires authentication setup.",
+        error: error.message
+      };
     }
   }
 
-  // Generate a realistic-looking Solana address
-  function generateSolanaAddress() {
-    const chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-    let result = '';
-    for (let i = 0; i < 44; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
+  // Authenticate user with Turnkey
+  async function authenticateUser() {
+    try {
+      console.log("XOFE: Starting Turnkey authentication...");
+      
+      // Try to create a new user with passkey
+      const userName = `XOFE-User-${Date.now()}`;
+      const userEmail = `xofe-user-${Date.now()}@example.com`;
+      
+      console.log("XOFE: Creating user with passkey:", userName);
+      
+      // Create user with passkey authentication
+      const createUserResult = await passkeyClient.createUser({
+        userName: userName,
+        userEmail: userEmail
+      });
+      
+      console.log("XOFE: User created successfully:", createUserResult);
+      
+      return {
+        success: true,
+        userId: createUserResult.userId,
+        email: userEmail,
+        userName: userName,
+        subOrganizationId: createUserResult.subOrganizationId
+      };
+      
+    } catch (error) {
+      console.error("XOFE: Authentication failed:", error);
+      
+      // Try login if user already exists
+      try {
+        console.log("XOFE: Trying to login existing user...");
+        const loginResult = await passkeyClient.login();
+        
+        return {
+          success: true,
+          userId: loginResult.userId,
+          subOrganizationId: loginResult.subOrganizationId
+        };
+        
+      } catch (loginError) {
+        console.error("XOFE: Login also failed:", loginError);
+        return {
+          success: false,
+          error: `Auth failed: ${error.message}, Login failed: ${loginError.message}`
+        };
+      }
     }
-    return result;
+  }
+
+  // Create sub-organization for user wallet
+  async function createSubOrganization(authResult) {
+    try {
+      console.log("XOFE: Creating sub-organization for user...");
+      
+      console.log("XOFE: Creating wallet for sub-org:", authResult.subOrganizationId);
+      
+      // Create wallet in the user's sub-organization
+      const walletResult = await turnkeyClient.createWallet({
+        organizationId: authResult.subOrganizationId,
+        walletName: "XOFE Solana Wallet",
+        accounts: [{
+          curve: "CURVE_ED25519",
+          pathFormat: "PATH_FORMAT_BIP32", 
+          path: "m/44'/501'/0'/0'",
+          addressFormat: "ADDRESS_FORMAT_SOLANA"
+        }]
+      });
+      
+      console.log("XOFE: Wallet created successfully:", walletResult);
+      
+      return {
+        success: true,
+        subOrganizationId: authResult.subOrganizationId,
+        walletId: walletResult.walletId,
+        addresses: walletResult.addresses
+      };
+      
+    } catch (error) {
+      console.error("XOFE: Sub-organization creation failed:", error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
   }
 
   // Get wallet status
-  function getWalletStatus() {
+  async function getWalletStatus() {
     return {
+      isInitialized: walletState.isInitialized,
       isCreated: walletState.isCreated,
       address: walletState.address,
       balance: walletState.balance
@@ -286,20 +281,22 @@
   }
 
   // Fund wallet (placeholder for Coinbase Pay integration)
-  async function fundWallet(amount = 10) {
+  async function fundWallet(amount = 100) {
     try {
-      console.log("XOFE: Funding wallet with", amount, "USDC...");
+      console.log("XOFE: Funding wallet with $", amount);
       
-      // TODO: Implement actual Coinbase Pay integration
+      // TODO: Implement Coinbase Pay integration
       // For now, simulate funding
       walletState.balance += amount;
       
-      // Update storage
+      // Save updated balance
       await chrome.storage.local.set({ xofe_wallet_data: walletState });
       
-      console.log("XOFE: Wallet funded successfully. New balance:", walletState.balance);
-      return { success: true, newBalance: walletState.balance };
-      
+      return {
+        success: true,
+        message: `Wallet funded with $${amount} (simulated)`,
+        balance: walletState.balance
+      };
     } catch (error) {
       console.error("XOFE: Error funding wallet:", error);
       return { success: false, error: error.message };
@@ -310,13 +307,10 @@
   window.debugXOFE = function() {
     console.log("=== XOFE DEBUG INFO ===");
     console.log("walletState:", walletState);
-    console.log("turnkeySDK available:", !!turnkeySDK);
-    console.log("turnkeySigner available:", !!turnkeySigner);
+    console.log("turnkeyClient available:", !!turnkeyClient);
+    console.log("passkeyClient available:", !!passkeyClient);
     console.log("window.TurnkeySDK:", window.TurnkeySDK);
-    console.log("Turnkey client available:", !!walletState.turnkeyClient);
-    if (walletState.turnkeyClient) {
-      console.log("Turnkey client methods:", Object.getOwnPropertyNames(walletState.turnkeyClient));
-    }
+    console.log("TURNKEY_CONFIG:", TURNKEY_CONFIG);
     console.log("========================");
   };
 
