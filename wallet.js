@@ -78,14 +78,57 @@
         apiBaseUrl: "https://api.turnkey.com",
         defaultOrganizationId: "7df2c24f-4185-40e7-b16b-68600a5659c8",
         rpId: window.location.hostname, // Use current domain (x.com or twitter.com)
+        iframeUrl: "https://auth.turnkey.com",
       };
 
       walletState.turnkeyClient = new turnkeySDK(turnkeyConfig);
-      console.log("XOFE: Turnkey client initialized");
+      console.log("XOFE: Turnkey client initialized with config:", turnkeyConfig);
       
     } catch (error) {
       console.error("XOFE: Failed to initialize Turnkey client:", error);
       throw error;
+    }
+  }
+
+  // Authenticate user with Turnkey (using passkeys)
+  async function authenticateUser() {
+    try {
+      console.log("XOFE: Starting Turnkey authentication...");
+      
+      if (!walletState.turnkeyClient) {
+        throw new Error("Turnkey client not initialized");
+      }
+
+      // Get passkey client for authentication
+      const passkeyClient = walletState.turnkeyClient.passkeyClient();
+      
+      // Try to login with existing passkey
+      console.log("XOFE: Attempting passkey login...");
+      const loginResult = await passkeyClient.login();
+      
+      console.log("XOFE: Passkey login successful:", loginResult);
+      return { success: true, client: passkeyClient };
+      
+    } catch (error) {
+      console.log("XOFE: Passkey login failed, attempting registration:", error);
+      
+      try {
+        // If login fails, try to register a new passkey
+        const passkeyClient = walletState.turnkeyClient.passkeyClient();
+        
+        console.log("XOFE: Creating new user with passkey...");
+        const registrationResult = await passkeyClient.createUser({
+          userName: "XOFE User",
+          userEmail: `xofe-user-${Date.now()}@example.com` // Temporary email
+        });
+        
+        console.log("XOFE: Passkey registration successful:", registrationResult);
+        return { success: true, client: passkeyClient, isNewUser: true };
+        
+      } catch (registrationError) {
+        console.error("XOFE: Passkey registration also failed:", registrationError);
+        return { success: false, error: registrationError.message };
+      }
     }
   }
 
@@ -99,7 +142,16 @@
         return createDemoWallet();
       }
 
-      console.log("XOFE: Attempting to create Solana wallet...");
+      console.log("XOFE: Authenticating user...");
+      const authResult = await authenticateUser();
+      
+      if (!authResult.success) {
+        console.log("XOFE: Authentication failed, falling back to demo mode");
+        return createDemoWallet();
+      }
+
+      console.log("XOFE: User authenticated, creating Solana wallet...");
+      const passkeyClient = authResult.client;
       
       try {
         // Create a sub-organization for the user (simplified flow)
@@ -107,15 +159,12 @@
         
         console.log("XOFE: Creating sub-organization:", subOrgName);
         
-        // In a real implementation, you would need to handle authentication first
-        // For now, we'll attempt direct wallet creation and handle auth errors gracefully
-        
-        const walletResponse = await walletState.turnkeyClient.createWallet({
-          organizationId: "7df2c24f-4185-40e7-b16b-68600a5659c8", // Your org ID
+        // Create wallet using authenticated passkey client
+        const walletResponse = await passkeyClient.createWallet({
           walletName: `XOFE_Solana_${Date.now()}`,
           accounts: [{
             curve: "CURVE_ED25519",
-            pathFormat: "PATH_FORMAT_BIP32",
+            pathFormat: "PATH_FORMAT_BIP32", 
             path: "m/44'/501'/0'/0'", // Standard Solana derivation path
             addressFormat: "ADDRESS_FORMAT_SOLANA"
           }]

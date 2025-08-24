@@ -1456,7 +1456,7 @@
                 margin: 8px;
                 width: 100%;
                 font-size: 16px;
-              ">Create Wallet</button>
+              ">Create Wallet (Requires Passkey)</button>
             </div>
           </div>
         </div>
@@ -1501,7 +1501,7 @@
   async function handleCreateWallet() {
     const createBtn = document.getElementById('create-wallet-btn');
     if (createBtn) {
-      createBtn.textContent = 'Creating...';
+      createBtn.textContent = 'Authenticating...';
       createBtn.disabled = true;
     }
 
