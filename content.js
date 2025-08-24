@@ -1288,10 +1288,10 @@
   // Initialize embedded wallet
   async function initializeWallet() {
     try {
-      // Initialize wallet module
-      if (window.XOFEWallet) {
-        await window.XOFEWallet.init();
-        console.log("XOFE: Wallet module initialized");
+      // Initialize simple wallet module
+      if (window.XOFESimpleWallet) {
+        await window.XOFESimpleWallet.init();
+        console.log("XOFE: Simple Wallet module initialized");
         
         // Inject wallet UI into X sidebar
         injectWalletUI();
@@ -1507,15 +1507,15 @@
 
     try {
       // Ensure wallet is fully initialized before creating
-      if (window.XOFEWallet) {
-        await window.XOFEWallet.init();
+      if (window.XOFESimpleWallet) {
+        await window.XOFESimpleWallet.init();
       }
       
       if (createBtn) {
         createBtn.textContent = 'Authenticating...';
       }
       
-      const result = await window.XOFEWallet.create();
+      const result = await window.XOFESimpleWallet.create();
       
       if (result.success) {
         console.log("XOFE: Wallet created:", result.address);
@@ -1613,17 +1613,17 @@
     }
 
     try {
-      // For now, simulate funding
-      const result = await window.XOFEWallet.fund(10);
+      // Use simple wallet for funding
+      const result = await window.XOFESimpleWallet.fund(100);
       
       if (result.success) {
-        console.log("XOFE: Wallet funded, new balance:", result.newBalance);
-        alert(`Wallet funded with $10 USDC! New balance: $${result.newBalance}`);
+        console.log("XOFE: Wallet funded, new balance:", result.balance);
+        alert(`Wallet funded with $100 USDC! New balance: $${result.balance}`);
         
         // Update the balance display
         const balanceEl = document.querySelector('#wallet-content [style*="font-weight: 600"]');
         if (balanceEl) {
-          balanceEl.textContent = `$${result.newBalance.toFixed(2)}`;
+          balanceEl.textContent = `$${result.balance.toFixed(2)}`;
         }
       } else {
         throw new Error(result.error);

@@ -22,7 +22,7 @@
   "content_scripts": [
     {
       "matches": ["https://x.com/*", "https://twitter.com/*"],
-      "js": ["wallet.js", "content.js"],
+      "js": ["wallet-simple.js", "content.js"],
       "run_at": "document_idle"
     }
   ],
