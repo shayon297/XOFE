@@ -53,6 +53,9 @@
       console.error("XOFE: Error initializing wallet:", error);
       // Set as initialized anyway so we can fall back to demo mode
       walletState.isInitialized = true;
+      // Clear clients on error so we know they're not available
+      turnkeyClient = null;
+      passkeyClient = null;
     }
   }
 
@@ -109,8 +112,15 @@
     try {
       console.log("XOFE: Creating new Solana wallet with Turnkey...");
       
+      // Ensure wallet is fully initialized
+      if (!walletState.isInitialized) {
+        console.log("XOFE: Wallet not initialized, initializing now...");
+        await initWallet();
+      }
+      
       if (!passkeyClient) {
-        throw new Error("Turnkey passkey client not initialized");
+        console.log("XOFE: Turnkey client not available, falling back to demo mode");
+        throw new Error("Turnkey client not initialized - falling back to demo mode");
       }
 
       // Step 1: Get authentication credentials (email/passkey)

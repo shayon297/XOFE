@@ -1501,11 +1501,20 @@
   async function handleCreateWallet() {
     const createBtn = document.getElementById('create-wallet-btn');
     if (createBtn) {
-      createBtn.textContent = 'Authenticating...';
+      createBtn.textContent = 'Initializing...';
       createBtn.disabled = true;
     }
 
     try {
+      // Ensure wallet is fully initialized before creating
+      if (window.XOFEWallet) {
+        await window.XOFEWallet.init();
+      }
+      
+      if (createBtn) {
+        createBtn.textContent = 'Authenticating...';
+      }
+      
       const result = await window.XOFEWallet.create();
       
       if (result.success) {
