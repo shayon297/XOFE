@@ -104,16 +104,7 @@
         };
         
       } catch (loginError) {
-        console.log("XOFE: Both create and login failed, using demo mode");
-        
-        // Return demo wallet for now
-        return {
-          success: true,
-          subOrganizationId: `demo_org_${Date.now()}`,
-          userId: `demo_user_${Date.now()}`,
-          address: `DEMO${Math.random().toString(36).substring(2, 12).toUpperCase()}`,
-          isDemo: true
-        };
+        throw new Error(`Both create and login failed: ${error.message} | ${loginError.message}`);
       }
     }
   }
@@ -193,20 +184,10 @@
     } catch (error) {
       console.error("XOFE: Error creating wallet:", error);
       
-      // Fallback to demo mode
-      const demoAddress = `DEMO${Math.random().toString(36).substring(2, 12)}`;
-      
-      walletState = {
-        ...walletState,
-        isCreated: true,
-        address: demoAddress
-      };
-
       return {
         success: false,
-        address: demoAddress,
-        message: "⚠️ Demo Mode: Demo wallet created. Try again for real wallet creation.",
-        error: error.message
+        error: error.message,
+        message: `Wallet creation failed: ${error.message}`
       };
     }
   }
