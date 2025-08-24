@@ -1339,9 +1339,7 @@
         line-height: 24px;
         min-height: 56px;
       " 
-      onmouseover="this.style.backgroundColor='rgba(231, 233, 234, 0.1)'"
-      onmouseout="this.style.backgroundColor='transparent'"
-      onclick="window.showXOFEWallet()">
+">
         <div style="
           width: 26.25px;
           height: 26.25px;
@@ -1359,6 +1357,21 @@
       </div>
     `;
 
+    // Add proper event listeners (CSP compliant)
+    const walletButton = walletTab.querySelector('div');
+    walletButton.addEventListener('click', () => {
+      console.log("XOFE: Wallet button clicked");
+      showWalletModal();
+    });
+    
+    walletButton.addEventListener('mouseenter', () => {
+      walletButton.style.backgroundColor = 'rgba(231, 233, 234, 0.1)';
+    });
+    
+    walletButton.addEventListener('mouseleave', () => {
+      walletButton.style.backgroundColor = 'transparent';
+    });
+
     // Find the best insertion point in sidebar
     const navItems = sidebar.querySelector('nav') || sidebar;
     const firstNavItem = navItems.querySelector('a') || navItems.firstElementChild;
@@ -1369,7 +1382,7 @@
       navItems.appendChild(walletTab);
     }
 
-    console.log("XOFE: Wallet tab injected successfully");
+    console.log("XOFE: Wallet tab injected successfully with event listeners");
   }
 
   // Show wallet interface
@@ -1400,7 +1413,7 @@
         align-items: center;
         justify-content: center;
         z-index: 10000;
-      " onclick="this.remove()">
+      ">
         <div style="
           background: rgb(21, 32, 43);
           border-radius: 16px;
@@ -1411,10 +1424,10 @@
           overflow-y: auto;
           color: rgb(231, 233, 234);
           box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-        " onclick="event.stopPropagation()">
+        " id="wallet-modal-content">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
             <h2 style="margin: 0; font-size: 24px; font-weight: 700;">XOFE Wallet</h2>
-            <button onclick="document.getElementById('xofe-wallet-modal').remove()" style="
+            <button id="close-wallet-modal" style="
               background: none;
               border: none;
               color: rgb(231, 233, 234);
@@ -1451,6 +1464,26 @@
     `;
 
     document.body.appendChild(modal);
+    
+    // Add event listeners for modal (CSP compliant)
+    const modalBackground = modal.querySelector('div');
+    const modalContent = document.getElementById('wallet-modal-content');
+    const closeButton = document.getElementById('close-wallet-modal');
+    
+    // Close modal when clicking background
+    modalBackground.addEventListener('click', () => {
+      modal.remove();
+    });
+    
+    // Prevent modal close when clicking content
+    modalContent.addEventListener('click', (event) => {
+      event.stopPropagation();
+    });
+    
+    // Close modal when clicking X button
+    closeButton.addEventListener('click', () => {
+      modal.remove();
+    });
     
     // Bind wallet actions
     bindWalletActions();
@@ -1533,7 +1566,7 @@
         font-size: 16px;
       ">Fund with USDC</button>
       
-      <button onclick="alert('Portfolio view coming soon!')" style="
+      <button id="view-portfolio-btn" style="
         background: transparent;
         color: rgb(231, 233, 234);
         border: 1px solid rgba(231, 233, 234, 0.3);
@@ -1551,6 +1584,14 @@
     const fundBtn = document.getElementById('fund-wallet-btn');
     if (fundBtn) {
       fundBtn.addEventListener('click', handleFundWallet);
+    }
+    
+    // Bind portfolio view action
+    const portfolioBtn = document.getElementById('view-portfolio-btn');
+    if (portfolioBtn) {
+      portfolioBtn.addEventListener('click', () => {
+        alert('Portfolio view coming soon!');
+      });
     }
   }
 
