@@ -31,9 +31,11 @@
         // Give the bundle a moment to set up window.TurnkeySDK
         setTimeout(() => {
           console.log("XOFE: After timeout - window.TurnkeySDK:", window.TurnkeySDK);
-          if (window.TurnkeySDK) {
+          if (window.TurnkeySDK && window.TurnkeySDK.TurnkeyPasskeyClient) {
+            console.log("XOFE: Turnkey SDK fully available");
             resolve();
           } else {
+            console.log("XOFE: Turnkey SDK not properly loaded, will use fallback");
             reject(new Error("Turnkey SDK not available"));
           }
         }, 100);
@@ -102,7 +104,16 @@
         };
         
       } catch (loginError) {
-        throw new Error(`Authentication failed: ${error.message}`);
+        console.log("XOFE: Both create and login failed, using demo mode");
+        
+        // Return demo wallet for now
+        return {
+          success: true,
+          subOrganizationId: `demo_org_${Date.now()}`,
+          userId: `demo_user_${Date.now()}`,
+          address: `DEMO${Math.random().toString(36).substring(2, 12).toUpperCase()}`,
+          isDemo: true
+        };
       }
     }
   }
@@ -167,10 +178,16 @@
         organizationId: organizationId
       });
 
+      const isDemo = authResult.isDemo;
+      const message = isDemo ? 
+        `⚠️ Demo wallet created! Address: ${address}` :
+        `✅ Real Turnkey wallet created! Address: ${address.slice(0, 8)}...${address.slice(-8)}`;
+
       return {
         success: true,
         address: address,
-        message: `Wallet created! Address: ${address.slice(0, 8)}...${address.slice(-8)}`
+        message: message,
+        isDemo: isDemo
       };
 
     } catch (error) {
