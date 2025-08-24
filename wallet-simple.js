@@ -15,7 +15,8 @@
   const TURNKEY_CONFIG = {
     organizationId: "7df2c24f-4185-40e7-b16b-68600a5659c8",
     apiBaseUrl: "https://api.turnkey.com",
-    iframeUrl: "https://auth.turnkey.com"
+    iframeUrl: "https://auth.turnkey.com",
+    rpId: window.location.hostname // Use current domain (x.com or twitter.com)
   };
 
   // Load Turnkey SDK via dynamic import
@@ -81,7 +82,7 @@
       // Create passkey client
       const passkeyClient = new window.TurnkeySDK.TurnkeyPasskeyClient({
         baseUrl: TURNKEY_CONFIG.apiBaseUrl,
-        rpId: window.location.hostname
+        rpId: TURNKEY_CONFIG.rpId
       });
       
       console.log("XOFE: Creating user with Turnkey passkey...");
@@ -115,7 +116,7 @@
         console.log("XOFE: Trying Turnkey login...");
         const passkeyClient = new window.TurnkeySDK.TurnkeyPasskeyClient({
           baseUrl: TURNKEY_CONFIG.apiBaseUrl,
-          rpId: window.location.hostname
+          rpId: TURNKEY_CONFIG.rpId
         });
         
         const loginResult = await passkeyClient.login();
