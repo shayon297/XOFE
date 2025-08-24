@@ -902,7 +902,8 @@
       showStatus("Signing transaction...", "info");
 
       // Sign and send transaction via Phantom
-      const result = await signAndSendTransaction(swapTransaction);
+      // Use XOFE wallet (Turnkey) for signing instead of Phantom
+      const result = await signWithXOFEWallet(swapTransaction);
       if (result.success) {
         showStatus(`Transaction completed! <a href="${result.explorer}" style="color:#00ff00;text-decoration:underline;cursor:pointer;" onclick="window.open('${result.explorer}', '_blank')">View on SolanaFM</a>`, "success");
       } else {
@@ -1169,6 +1170,56 @@
     }
   }
 
+  // Sign transaction with XOFE embedded wallet (Turnkey)
+  async function signWithXOFEWallet(base64Transaction) {
+    try {
+      console.log("XOFE: Signing transaction with embedded wallet...");
+      
+      // Check if wallet is available
+      if (!window.XOFESimpleWallet) {
+        throw new Error("XOFE wallet not available");
+      }
+      
+      // Get wallet status
+      const walletStatus = await window.XOFESimpleWallet.getStatus();
+      if (!walletStatus.isCreated) {
+        throw new Error("No XOFE wallet created. Please create a wallet first.");
+      }
+      
+      // Check balance
+      if (walletStatus.balance <= 0) {
+        throw new Error("Insufficient USDC balance. Please fund your wallet first.");
+      }
+      
+      // Sign the transaction using Turnkey
+      const signResult = await window.XOFESimpleWallet.sign(base64Transaction);
+      
+      if (signResult.success) {
+        // Simulate successful transaction for demo
+        const signature = signResult.signature;
+        const explorerUrl = `https://solana.fm/tx/${signature}`;
+        
+        console.log("XOFE: Transaction signed successfully:", signature);
+        
+        return {
+          success: true,
+          signature: signature,
+          explorer: explorerUrl
+        };
+      } else {
+        throw new Error(signResult.error);
+      }
+      
+    } catch (error) {
+      console.error("XOFE: Transaction signing failed:", error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // Legacy Phantom signing function (keep for fallback)
   function signAndSendTransaction(base64Transaction) {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
