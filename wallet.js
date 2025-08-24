@@ -145,16 +145,16 @@
         throw new Error(`Authentication failed: ${authResult.error}`);
       }
 
-      // Step 2: Create sub-organization for the user
-      console.log("XOFE: Creating sub-organization...");
-      const subOrgResult = await createSubOrganization(authResult);
+      // Step 2: Create Solana wallet for the user
+      console.log("XOFE: Creating Solana wallet...");
+      const walletResult = await createSolanaWallet(authResult);
       
-      if (!subOrgResult.success) {
-        throw new Error(`Sub-organization creation failed: ${subOrgResult.error}`);
+      if (!walletResult.success) {
+        throw new Error(`Wallet creation failed: ${walletResult.error}`);
       }
 
       // Step 3: Extract wallet details
-      const { subOrganizationId, walletId, addresses } = subOrgResult;
+      const { subOrganizationId, walletId, addresses } = walletResult;
       const solanaAddress = addresses.find(addr => addr.addressFormat === 'ADDRESS_FORMAT_SOLANA')?.address;
       
       if (!solanaAddress) {
@@ -206,75 +206,84 @@
     }
   }
 
-  // Authenticate user with Turnkey
+  // Authenticate user with Turnkey using proper SDK patterns
   async function authenticateUser() {
     try {
       console.log("XOFE: Starting Turnkey authentication...");
       
-      // Try to create a new user with passkey
+      // Use passkey client to create a new user account
+      // This follows the embedded wallet pattern from the docs
       const userName = `XOFE-User-${Date.now()}`;
       const userEmail = `xofe-user-${Date.now()}@example.com`;
       
-      console.log("XOFE: Creating user with passkey:", userName);
+      console.log("XOFE: Creating user with passkey authentication:", userName);
       
-      // Create user with passkey authentication
+      // Create user using the passkey client
+      // This should create both user and sub-organization automatically
       const createUserResult = await passkeyClient.createUser({
         userName: userName,
         userEmail: userEmail
       });
       
-      console.log("XOFE: User created successfully:", createUserResult);
+      console.log("XOFE: User and sub-organization created:", createUserResult);
       
       return {
         success: true,
+        subOrganizationId: createUserResult.subOrganizationId,
         userId: createUserResult.userId,
-        email: userEmail,
         userName: userName,
-        subOrganizationId: createUserResult.subOrganizationId
+        email: userEmail
       };
       
     } catch (error) {
       console.error("XOFE: Authentication failed:", error);
       
-      // Try login if user already exists
+      // Try to login with existing passkey
       try {
-        console.log("XOFE: Trying to login existing user...");
+        console.log("XOFE: Trying to login with existing passkey...");
         const loginResult = await passkeyClient.login();
         
         return {
           success: true,
-          userId: loginResult.userId,
-          subOrganizationId: loginResult.subOrganizationId
+          subOrganizationId: loginResult.subOrganizationId,
+          userId: loginResult.userId
         };
         
       } catch (loginError) {
         console.error("XOFE: Login also failed:", loginError);
         return {
           success: false,
-          error: `Auth failed: ${error.message}, Login failed: ${loginError.message}`
+          error: `Creation failed: ${error.message}, Login failed: ${loginError.message}`
         };
       }
     }
   }
 
-  // Create sub-organization for user wallet
-  async function createSubOrganization(authResult) {
+  // Create Solana wallet using Turnkey SDK
+  async function createSolanaWallet(authResult) {
     try {
-      console.log("XOFE: Creating sub-organization for user...");
+      console.log("XOFE: Creating Solana wallet in sub-organization:", authResult.subOrganizationId);
       
-      console.log("XOFE: Creating wallet for sub-org:", authResult.subOrganizationId);
-      
-      // Create wallet in the user's sub-organization
-      const walletResult = await turnkeyClient.createWallet({
+      // Use the Turnkey client to create a wallet with Solana account
+      // Following the pattern from the documentation
+      const createWalletActivity = {
+        type: "ACTIVITY_TYPE_CREATE_WALLET",
         organizationId: authResult.subOrganizationId,
-        walletName: "XOFE Solana Wallet",
-        accounts: [{
-          curve: "CURVE_ED25519",
-          pathFormat: "PATH_FORMAT_BIP32", 
-          path: "m/44'/501'/0'/0'",
-          addressFormat: "ADDRESS_FORMAT_SOLANA"
-        }]
-      });
+        parameters: {
+          walletName: "XOFE Solana Wallet",
+          accounts: [{
+            curve: "CURVE_ED25519",
+            pathFormat: "PATH_FORMAT_BIP32",
+            path: "m/44'/501'/0'/0'", // Solana derivation path
+            addressFormat: "ADDRESS_FORMAT_SOLANA"
+          }]
+        }
+      };
+      
+      console.log("XOFE: Submitting create wallet activity:", createWalletActivity);
+      
+      // Submit the wallet creation activity
+      const walletResult = await turnkeyClient.createWallet(createWalletActivity.parameters);
       
       console.log("XOFE: Wallet created successfully:", walletResult);
       
@@ -286,7 +295,7 @@
       };
       
     } catch (error) {
-      console.error("XOFE: Sub-organization creation failed:", error);
+      console.error("XOFE: Wallet creation failed:", error);
       return {
         success: false,
         error: error.message
