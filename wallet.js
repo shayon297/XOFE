@@ -52,13 +52,22 @@
       const script = document.createElement('script');
       script.src = chrome.runtime.getURL('lib/turnkey.bundle.js');
       script.onload = () => {
-        if (window.TurnkeySDK && window.TurnkeySDK.Turnkey && window.TurnkeySDK.TurnkeySigner) {
+        console.log("XOFE: Turnkey bundle script loaded");
+        console.log("XOFE: window.TurnkeySDK available:", !!window.TurnkeySDK);
+        if (window.TurnkeySDK) {
+          console.log("XOFE: TurnkeySDK properties:", Object.keys(window.TurnkeySDK));
+        }
+        
+        if (window.TurnkeySDK && window.TurnkeySDK.Turnkey) {
           turnkeySDK = window.TurnkeySDK.Turnkey;
           turnkeySigner = window.TurnkeySDK.TurnkeySigner;
           console.log("XOFE: Turnkey SDK with Solana support loaded successfully");
+          console.log("XOFE: Turnkey class:", turnkeySDK);
           resolve();
         } else {
-          reject(new Error("Turnkey SDK or TurnkeySigner not found on window"));
+          const error = "Turnkey SDK or TurnkeySigner not found on window";
+          console.error("XOFE:", error);
+          reject(new Error(error));
         }
       };
       script.onerror = () => reject(new Error("Failed to load Turnkey SDK"));
@@ -94,13 +103,23 @@
   async function authenticateUser() {
     try {
       console.log("XOFE: Starting Turnkey authentication...");
+      console.log("XOFE: walletState.turnkeyClient available:", !!walletState.turnkeyClient);
       
       if (!walletState.turnkeyClient) {
         throw new Error("Turnkey client not initialized");
       }
 
+      console.log("XOFE: Turnkey client methods:", Object.getOwnPropertyNames(walletState.turnkeyClient));
+      
+      // Check if passkeyClient method exists
+      if (typeof walletState.turnkeyClient.passkeyClient !== 'function') {
+        throw new Error("passkeyClient method not available on Turnkey client");
+      }
+
       // Get passkey client for authentication
+      console.log("XOFE: Getting passkey client...");
       const passkeyClient = walletState.turnkeyClient.passkeyClient();
+      console.log("XOFE: Passkey client created:", !!passkeyClient);
       
       // Try to login with existing passkey
       console.log("XOFE: Attempting passkey login...");
@@ -111,6 +130,7 @@
       
     } catch (error) {
       console.log("XOFE: Passkey login failed, attempting registration:", error);
+      console.log("XOFE: Error details:", error.message, error.stack);
       
       try {
         // If login fails, try to register a new passkey
@@ -127,6 +147,7 @@
         
       } catch (registrationError) {
         console.error("XOFE: Passkey registration also failed:", registrationError);
+        console.error("XOFE: Registration error details:", registrationError.message, registrationError.stack);
         return { success: false, error: registrationError.message };
       }
     }
@@ -285,12 +306,27 @@
     }
   }
 
+  // Debug function for console testing
+  window.debugXOFE = function() {
+    console.log("=== XOFE DEBUG INFO ===");
+    console.log("walletState:", walletState);
+    console.log("turnkeySDK available:", !!turnkeySDK);
+    console.log("turnkeySigner available:", !!turnkeySigner);
+    console.log("window.TurnkeySDK:", window.TurnkeySDK);
+    console.log("Turnkey client available:", !!walletState.turnkeyClient);
+    if (walletState.turnkeyClient) {
+      console.log("Turnkey client methods:", Object.getOwnPropertyNames(walletState.turnkeyClient));
+    }
+    console.log("========================");
+  };
+
   // Export functions for content script
   window.XOFEWallet = {
     init: initWallet,
     create: createWallet,
     getStatus: getWalletStatus,
-    fund: fundWallet
+    fund: fundWallet,
+    debug: window.debugXOFE
   };
 
 })();
