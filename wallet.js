@@ -64,12 +64,11 @@
     }
 
     try {
-      // NOTE: These values should come from your Turnkey developer account
-      // For now, using placeholder values - you'll need to replace these
+      // Your actual Turnkey configuration
       const turnkeyConfig = {
         apiBaseUrl: "https://api.turnkey.com",
-        defaultOrganizationId: "YOUR_ORG_ID", // Replace with your actual org ID
-        rpId: window.location.hostname, // Use current domain
+        defaultOrganizationId: "7df2c24f-4185-40e7-b16b-68600a5659c8",
+        rpId: window.location.hostname, // Use current domain (x.com or twitter.com)
       };
 
       walletState.turnkeyClient = new turnkeySDK(turnkeyConfig);
