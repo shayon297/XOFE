@@ -18,10 +18,14 @@
     if (walletState.isInitialized) return;
     
     try {
+      console.log("XOFE: Starting wallet initialization...");
+      
       // Load Turnkey SDK
+      console.log("XOFE: Loading Turnkey SDK...");
       await loadTurnkeySDK();
       
       // Initialize Turnkey client
+      console.log("XOFE: Initializing Turnkey client...");
       await initTurnkeyClient();
       
       // Check if wallet exists in storage
@@ -33,8 +37,11 @@
         walletState.isInitialized = true;
         console.log("XOFE: No existing wallet found");
       }
+      
+      console.log("XOFE: Wallet initialization complete");
     } catch (error) {
       console.error("XOFE: Error initializing wallet:", error);
+      // Set as initialized anyway so we can fall back to demo mode
       walletState.isInitialized = true;
     }
   }
@@ -88,7 +95,8 @@
       console.log("XOFE: Creating new Solana wallet with Turnkey...");
       
       if (!walletState.turnkeyClient) {
-        throw new Error("Turnkey client not initialized");
+        console.log("XOFE: Turnkey client not initialized, falling back to demo mode...");
+        return createDemoWallet();
       }
 
       console.log("XOFE: Attempting to create Solana wallet...");
@@ -146,35 +154,44 @@
         
       } catch (turnkeyError) {
         console.log("XOFE: Turnkey API error (likely auth required):", turnkeyError);
-        
-        // Fallback: Generate a realistic Solana address for demo purposes
-        console.log("XOFE: Falling back to simulated wallet for demo...");
-        
-        const simulatedWallet = {
-          address: generateSolanaAddress(),
-          isCreated: true,
-          balance: 0,
-          createdAt: Date.now(),
-          isSimulated: true,
-          note: "Real Turnkey integration requires user authentication setup"
-        };
-
-        walletState = { ...walletState, ...simulatedWallet };
-        
-        // Store wallet data
-        await chrome.storage.local.set({ xofe_wallet_data: walletState });
-        
-        console.log("XOFE: Simulated Solana wallet created:", simulatedWallet.address);
-        return { 
-          success: true, 
-          address: simulatedWallet.address,
-          isSimulated: true,
-          message: "Demo wallet created. Real Turnkey integration requires authentication setup."
-        };
+        console.log("XOFE: Falling back to demo wallet...");
+        return createDemoWallet();
       }
       
     } catch (error) {
       console.error("XOFE: Error creating wallet:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Create a demo wallet when Turnkey isn't available
+  async function createDemoWallet() {
+    try {
+      console.log("XOFE: Creating demo Solana wallet...");
+      
+      const simulatedWallet = {
+        address: generateSolanaAddress(),
+        isCreated: true,
+        balance: 0,
+        createdAt: Date.now(),
+        isSimulated: true,
+        note: "Demo wallet - Real Turnkey integration requires authentication setup"
+      };
+
+      walletState = { ...walletState, ...simulatedWallet };
+      
+      // Store wallet data
+      await chrome.storage.local.set({ xofe_wallet_data: walletState });
+      
+      console.log("XOFE: Demo Solana wallet created:", simulatedWallet.address);
+      return { 
+        success: true, 
+        address: simulatedWallet.address,
+        isSimulated: true,
+        message: "Demo wallet created. Real Turnkey integration requires authentication setup."
+      };
+    } catch (error) {
+      console.error("XOFE: Error creating demo wallet:", error);
       return { success: false, error: error.message };
     }
   }
