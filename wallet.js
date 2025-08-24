@@ -70,6 +70,8 @@
         
         if (window.TurnkeySDK) {
           console.log("XOFE: TurnkeySDK properties:", Object.keys(window.TurnkeySDK));
+          console.log("XOFE: TurnkeyBrowserClient available:", !!window.TurnkeySDK.TurnkeyBrowserClient);
+          console.log("XOFE: TurnkeyPasskeyClient available:", !!window.TurnkeySDK.TurnkeyPasskeyClient);
           resolve();
         } else {
           reject(new Error("TurnkeySDK not found on window"));
@@ -88,17 +90,29 @@
 
     try {
       console.log("XOFE: Creating Turnkey Browser Client...");
+      console.log("XOFE: Config:", TURNKEY_CONFIG);
+      
+      if (!window.TurnkeySDK.TurnkeyBrowserClient) {
+        throw new Error("TurnkeyBrowserClient not available");
+      }
+      if (!window.TurnkeySDK.TurnkeyPasskeyClient) {
+        throw new Error("TurnkeyPasskeyClient not available");
+      }
       
       // Initialize the browser client
+      console.log("XOFE: Creating browser client...");
       turnkeyClient = new window.TurnkeySDK.TurnkeyBrowserClient({
         baseUrl: TURNKEY_CONFIG.apiBaseUrl
       });
+      console.log("XOFE: Browser client created:", !!turnkeyClient);
       
       // Initialize passkey client for authentication
+      console.log("XOFE: Creating passkey client...");
       passkeyClient = new window.TurnkeySDK.TurnkeyPasskeyClient({
         baseUrl: TURNKEY_CONFIG.apiBaseUrl,
         rpId: TURNKEY_CONFIG.rpId
       });
+      console.log("XOFE: Passkey client created:", !!passkeyClient);
       
       console.log("XOFE: Turnkey clients created successfully");
     } catch (error) {
