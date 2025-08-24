@@ -11,6 +11,7 @@
   };
 
   let turnkeySDK = null;
+  let turnkeySigner = null;
 
   // Initialize wallet module
   async function initWallet() {
@@ -44,12 +45,13 @@
       const script = document.createElement('script');
       script.src = chrome.runtime.getURL('lib/turnkey.bundle.js');
       script.onload = () => {
-        if (window.TurnkeySDK && window.TurnkeySDK.Turnkey) {
+        if (window.TurnkeySDK && window.TurnkeySDK.Turnkey && window.TurnkeySDK.TurnkeySigner) {
           turnkeySDK = window.TurnkeySDK.Turnkey;
-          console.log("XOFE: Turnkey SDK loaded successfully");
+          turnkeySigner = window.TurnkeySDK.TurnkeySigner;
+          console.log("XOFE: Turnkey SDK with Solana support loaded successfully");
           resolve();
         } else {
-          reject(new Error("Turnkey SDK not found on window"));
+          reject(new Error("Turnkey SDK or TurnkeySigner not found on window"));
         }
       };
       script.onerror = () => reject(new Error("Failed to load Turnkey SDK"));
@@ -83,38 +85,93 @@
   // Create wallet using Turnkey
   async function createWallet() {
     try {
-      console.log("XOFE: Creating new wallet with Turnkey...");
+      console.log("XOFE: Creating new Solana wallet with Turnkey...");
       
       if (!walletState.turnkeyClient) {
         throw new Error("Turnkey client not initialized");
       }
 
-      // For now, we'll create a simulated wallet since actual Turnkey integration
-      // requires proper authentication setup (passkeys, email verification, etc.)
-      // In a real implementation, you would:
-      // 1. Authenticate user (passkey, email, etc.)
-      // 2. Create sub-organization for user
-      // 3. Generate Solana wallet
+      console.log("XOFE: Attempting to create Solana wallet...");
       
-      console.log("XOFE: Turnkey client available, creating wallet...");
-      
-      // Simulate Turnkey wallet creation
-      // TODO: Replace with actual Turnkey API calls once authentication is set up
-      const simulatedWallet = {
-        address: generateSolanaAddress(), // Generate realistic Solana address
-        isCreated: true,
-        balance: 0,
-        createdAt: Date.now(),
-        turnkeySubOrgId: "sim_" + Math.random().toString(36).substr(2, 9)
-      };
+      try {
+        // Create a sub-organization for the user (simplified flow)
+        const subOrgName = `user_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+        
+        console.log("XOFE: Creating sub-organization:", subOrgName);
+        
+        // In a real implementation, you would need to handle authentication first
+        // For now, we'll attempt direct wallet creation and handle auth errors gracefully
+        
+        const walletResponse = await walletState.turnkeyClient.createWallet({
+          organizationId: "7df2c24f-4185-40e7-b16b-68600a5659c8", // Your org ID
+          walletName: `XOFE_Solana_${Date.now()}`,
+          accounts: [{
+            curve: "CURVE_ED25519",
+            pathFormat: "PATH_FORMAT_BIP32",
+            path: "m/44'/501'/0'/0'", // Standard Solana derivation path
+            addressFormat: "ADDRESS_FORMAT_SOLANA"
+          }]
+        });
 
-      walletState = { ...walletState, ...simulatedWallet };
-      
-      // Store wallet data
-      await chrome.storage.local.set({ xofe_wallet_data: walletState });
-      
-      console.log("XOFE: Wallet created successfully:", walletState.address);
-      return { success: true, address: walletState.address };
+        console.log("XOFE: Wallet creation response:", walletResponse);
+        
+        if (walletResponse && walletResponse.walletId) {
+          const walletId = walletResponse.walletId;
+          const addresses = walletResponse.addresses || [];
+          const solanaAddress = addresses.find(addr => addr.format === "ADDRESS_FORMAT_SOLANA")?.address;
+          
+          if (solanaAddress) {
+            const newWallet = {
+              address: solanaAddress,
+              walletId: walletId,
+              isCreated: true,
+              balance: 0,
+              createdAt: Date.now(),
+              turnkeyWalletId: walletId
+            };
+
+            walletState = { ...walletState, ...newWallet };
+            
+            // Store wallet data
+            await chrome.storage.local.set({ xofe_wallet_data: walletState });
+            
+            console.log("XOFE: Real Solana wallet created successfully:", solanaAddress);
+            return { success: true, address: solanaAddress };
+          } else {
+            throw new Error("No Solana address found in wallet response");
+          }
+        } else {
+          throw new Error("Invalid wallet creation response");
+        }
+        
+      } catch (turnkeyError) {
+        console.log("XOFE: Turnkey API error (likely auth required):", turnkeyError);
+        
+        // Fallback: Generate a realistic Solana address for demo purposes
+        console.log("XOFE: Falling back to simulated wallet for demo...");
+        
+        const simulatedWallet = {
+          address: generateSolanaAddress(),
+          isCreated: true,
+          balance: 0,
+          createdAt: Date.now(),
+          isSimulated: true,
+          note: "Real Turnkey integration requires user authentication setup"
+        };
+
+        walletState = { ...walletState, ...simulatedWallet };
+        
+        // Store wallet data
+        await chrome.storage.local.set({ xofe_wallet_data: walletState });
+        
+        console.log("XOFE: Simulated Solana wallet created:", simulatedWallet.address);
+        return { 
+          success: true, 
+          address: simulatedWallet.address,
+          isSimulated: true,
+          message: "Demo wallet created. Real Turnkey integration requires authentication setup."
+        };
+      }
       
     } catch (error) {
       console.error("XOFE: Error creating wallet:", error);

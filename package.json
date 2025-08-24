@@ -23,7 +23,8 @@
   },
   "homepage": "https://github.com/shayon297/xofe#readme",
   "dependencies": {
-    "@turnkey/sdk-browser": "^5.8.0"
+    "@turnkey/sdk-browser": "^5.8.0",
+    "@turnkey/solana": "^1.0.42"
   },
   "devDependencies": {
     "webpack": "^5.101.3",

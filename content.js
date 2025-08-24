@@ -1477,7 +1477,7 @@
       
       if (result.success) {
         console.log("XOFE: Wallet created:", result.address);
-        showWalletDashboard(result.address);
+        showWalletDashboard(result.address, result.isSimulated, result.message);
       } else {
         throw new Error(result.error);
       }
@@ -1492,16 +1492,22 @@
   }
 
   // Show wallet dashboard after creation
-  function showWalletDashboard(address) {
+  function showWalletDashboard(address, isSimulated = false, message = "") {
     const content = document.getElementById('wallet-content');
     if (!content) return;
 
+    const statusMessage = isSimulated ? 
+      `<div style="background: rgba(255, 165, 0, 0.1); border: 1px solid rgba(255, 165, 0, 0.3); border-radius: 6px; padding: 8px; margin-bottom: 16px; font-size: 11px; color: #ffaa00;">
+        ⚠️ Demo Mode: ${message}
+      </div>` : '';
+
     content.innerHTML = `
       <div style="text-align: center; margin-bottom: 24px;">
-        <div style="font-size: 32px; margin-bottom: 8px;">✅</div>
-        <h3 style="margin: 0 0 8px 0;">Wallet Created!</h3>
+        <div style="font-size: 32px; margin-bottom: 8px;">${isSimulated ? '🔧' : '✅'}</div>
+        <h3 style="margin: 0 0 8px 0;">${isSimulated ? 'Demo Wallet Created!' : 'Solana Wallet Created!'}</h3>
         <p style="margin: 0; opacity: 0.7; font-size: 12px; word-break: break-all;">${address}</p>
       </div>
+      ${statusMessage}
       
       <div style="background: rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
         <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
