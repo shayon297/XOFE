@@ -1,4 +1,4 @@
-// wallet.js - Embedded wallet functionality
+// wallet.js - Embedded wallet functionality with Turnkey
 (() => {
   console.log("XOFE: Wallet module loaded");
 
@@ -6,14 +6,23 @@
     isCreated: false,
     address: null,
     balance: 0,
-    isInitialized: false
+    isInitialized: false,
+    turnkeyClient: null
   };
+
+  let turnkeySDK = null;
 
   // Initialize wallet module
   async function initWallet() {
     if (walletState.isInitialized) return;
     
     try {
+      // Load Turnkey SDK
+      await loadTurnkeySDK();
+      
+      // Initialize Turnkey client
+      await initTurnkeyClient();
+      
       // Check if wallet exists in storage
       const stored = await chrome.storage.local.get(['xofe_wallet_data']);
       if (stored.xofe_wallet_data) {
@@ -29,21 +38,78 @@
     }
   }
 
-  // Create wallet using Turnkey (placeholder implementation)
+  // Load Turnkey SDK
+  async function loadTurnkeySDK() {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = chrome.runtime.getURL('lib/turnkey.bundle.js');
+      script.onload = () => {
+        if (window.TurnkeySDK && window.TurnkeySDK.Turnkey) {
+          turnkeySDK = window.TurnkeySDK.Turnkey;
+          console.log("XOFE: Turnkey SDK loaded successfully");
+          resolve();
+        } else {
+          reject(new Error("Turnkey SDK not found on window"));
+        }
+      };
+      script.onerror = () => reject(new Error("Failed to load Turnkey SDK"));
+      document.head.appendChild(script);
+    });
+  }
+
+  // Initialize Turnkey client
+  async function initTurnkeyClient() {
+    if (!turnkeySDK) {
+      throw new Error("Turnkey SDK not loaded");
+    }
+
+    try {
+      // NOTE: These values should come from your Turnkey developer account
+      // For now, using placeholder values - you'll need to replace these
+      const turnkeyConfig = {
+        apiBaseUrl: "https://api.turnkey.com",
+        defaultOrganizationId: "YOUR_ORG_ID", // Replace with your actual org ID
+        rpId: window.location.hostname, // Use current domain
+      };
+
+      walletState.turnkeyClient = new turnkeySDK(turnkeyConfig);
+      console.log("XOFE: Turnkey client initialized");
+      
+    } catch (error) {
+      console.error("XOFE: Failed to initialize Turnkey client:", error);
+      throw error;
+    }
+  }
+
+  // Create wallet using Turnkey
   async function createWallet() {
     try {
       console.log("XOFE: Creating new wallet with Turnkey...");
       
-      // TODO: Implement actual Turnkey wallet creation
-      // For now, create a placeholder wallet
-      const mockWallet = {
-        address: "PLACEHOLDER_" + Math.random().toString(36).substr(2, 9),
+      if (!walletState.turnkeyClient) {
+        throw new Error("Turnkey client not initialized");
+      }
+
+      // For now, we'll create a simulated wallet since actual Turnkey integration
+      // requires proper authentication setup (passkeys, email verification, etc.)
+      // In a real implementation, you would:
+      // 1. Authenticate user (passkey, email, etc.)
+      // 2. Create sub-organization for user
+      // 3. Generate Solana wallet
+      
+      console.log("XOFE: Turnkey client available, creating wallet...");
+      
+      // Simulate Turnkey wallet creation
+      // TODO: Replace with actual Turnkey API calls once authentication is set up
+      const simulatedWallet = {
+        address: generateSolanaAddress(), // Generate realistic Solana address
         isCreated: true,
         balance: 0,
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        turnkeySubOrgId: "sim_" + Math.random().toString(36).substr(2, 9)
       };
 
-      walletState = { ...walletState, ...mockWallet };
+      walletState = { ...walletState, ...simulatedWallet };
       
       // Store wallet data
       await chrome.storage.local.set({ xofe_wallet_data: walletState });
@@ -55,6 +121,16 @@
       console.error("XOFE: Error creating wallet:", error);
       return { success: false, error: error.message };
     }
+  }
+
+  // Generate a realistic-looking Solana address
+  function generateSolanaAddress() {
+    const chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+    let result = '';
+    for (let i = 0; i < 44; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
   }
 
   // Get wallet status

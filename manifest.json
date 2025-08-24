@@ -28,7 +28,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["inpage.js", "lib/web3.iife.min.js"],
+      "resources": ["inpage.js", "lib/web3.iife.min.js", "lib/turnkey.bundle.js"],
       "matches": ["https://x.com/*", "https://twitter.com/*"]
     }
   ],

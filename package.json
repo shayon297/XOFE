@@ -1,0 +1,32 @@
+{
+  "name": "mintpop-extension",
+  "version": "1.0.0",
+  "description": "chrome extension for trading solana tokens on x/twitter. detects contract addresses and shows price charts with direct phantom wallet integration.",
+  "main": "background.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "build": "webpack",
+    "build:watch": "webpack --watch",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shayon297/xofe.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/shayon297/xofe/issues"
+  },
+  "homepage": "https://github.com/shayon297/xofe#readme",
+  "dependencies": {
+    "@turnkey/sdk-browser": "^5.8.0"
+  },
+  "devDependencies": {
+    "webpack": "^5.101.3",
+    "webpack-cli": "^6.0.1"
+  }
+}
