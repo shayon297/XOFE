@@ -158,12 +158,35 @@
       script.src = chrome.runtime.getURL('lib/turnkey.bundle.js');
       
       script.onload = () => {
+        console.log("XOFE: Bundle script loaded, checking for TurnkeySDK...");
+        
+        // Check immediately first
+        if (window.TurnkeySDK) {
+          console.log("XOFE: Turnkey SDK available immediately");
+          resolve(window.TurnkeySDK);
+          return;
+        }
+        
+        // Then check with timeout
         setTimeout(() => {
-          if (window.TurnkeySDK) {
+          console.log("XOFE: Checking TurnkeySDK after timeout...");
+          console.log("XOFE: window.TurnkeySDK:", window.TurnkeySDK);
+          
+          if (window.TurnkeySDK && window.TurnkeySDK.TurnkeyBrowserClient) {
             console.log("XOFE: Turnkey SDK loaded successfully");
             resolve(window.TurnkeySDK);
           } else {
-            reject(new Error("Turnkey SDK not available after load"));
+            console.log("XOFE: TurnkeySDK not found, trying longer timeout...");
+            
+            // Try one more time with longer timeout
+            setTimeout(() => {
+              if (window.TurnkeySDK && window.TurnkeySDK.TurnkeyBrowserClient) {
+                console.log("XOFE: Turnkey SDK loaded after extended timeout");
+                resolve(window.TurnkeySDK);
+              } else {
+                reject(new Error("Turnkey SDK not available after load"));
+              }
+            }, 500);
           }
         }, 100);
       };
