@@ -80,6 +80,10 @@
       }
       
       // Create passkey client
+      console.log("XOFE: TURNKEY_CONFIG:", TURNKEY_CONFIG);
+      console.log("XOFE: rpId value:", TURNKEY_CONFIG.rpId);
+      console.log("XOFE: window.location.hostname:", window.location.hostname);
+      
       const passkeyClient = new window.TurnkeySDK.TurnkeyPasskeyClient({
         baseUrl: TURNKEY_CONFIG.apiBaseUrl,
         rpId: TURNKEY_CONFIG.rpId
@@ -114,6 +118,9 @@
       // Try simple passkey login as fallback
       try {
         console.log("XOFE: Trying Turnkey login...");
+        console.log("XOFE: Login TURNKEY_CONFIG:", TURNKEY_CONFIG);
+        console.log("XOFE: Login rpId value:", TURNKEY_CONFIG.rpId);
+        
         const passkeyClient = new window.TurnkeySDK.TurnkeyPasskeyClient({
           baseUrl: TURNKEY_CONFIG.apiBaseUrl,
           rpId: TURNKEY_CONFIG.rpId
