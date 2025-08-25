@@ -8,21 +8,35 @@ console.log("XOFE: Background script loaded - Chrome Store Ready v2.5.0");
 let TurnkeySDK = null;
 try {
   console.log("XOFE: Loading Turnkey SDK in background script...");
+  
+  // For Service Workers, we need to check what context we're in
+  console.log("XOFE: Background context check - window:", typeof window);
+  console.log("XOFE: Background context check - globalThis:", typeof globalThis);
+  console.log("XOFE: Background context check - self:", typeof self);
+  
   // Use importScripts for service worker
   importScripts('lib/turnkey.bundle.js');
+  console.log("XOFE: ImportScripts completed");
   
-  // Check if SDK is available
-  if (typeof window !== 'undefined' && window.TurnkeySDK) {
-    TurnkeySDK = window.TurnkeySDK;
-    console.log("XOFE: Turnkey SDK loaded successfully in background");
+  // In Service Worker context, check self and globalThis
+  if (typeof self !== 'undefined' && self.TurnkeySDK) {
+    TurnkeySDK = self.TurnkeySDK;
+    console.log("XOFE: Turnkey SDK loaded from self in background");
   } else if (typeof globalThis !== 'undefined' && globalThis.TurnkeySDK) {
     TurnkeySDK = globalThis.TurnkeySDK;
     console.log("XOFE: Turnkey SDK loaded from globalThis in background");
+  } else if (typeof window !== 'undefined' && window.TurnkeySDK) {
+    TurnkeySDK = window.TurnkeySDK;
+    console.log("XOFE: Turnkey SDK loaded from window in background");
   } else {
-    console.log("XOFE: Turnkey SDK not found in background, will try alternative approach");
+    console.log("XOFE: Checking all available globals...");
+    console.log("XOFE: Available globals:", Object.keys(globalThis));
+    console.log("XOFE: TurnkeySDK on globalThis:", globalThis.TurnkeySDK);
+    console.log("XOFE: TurnkeySDK on self:", typeof self !== 'undefined' ? self.TurnkeySDK : 'self undefined');
   }
 } catch (error) {
   console.error("XOFE: Error loading Turnkey SDK in background:", error);
+  console.error("XOFE: Error stack:", error.stack);
 }
 
 chrome.runtime.onInstalled.addListener(async () => {

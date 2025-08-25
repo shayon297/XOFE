@@ -8,20 +8,30 @@ const TurnkeySDK = {
   WebauthnStamper
 };
 
-// Try multiple assignment methods
-window.TurnkeySDK = TurnkeySDK;
+// Assign to all possible global contexts
 globalThis.TurnkeySDK = TurnkeySDK;
 
-// Also assign to a custom event for cross-context communication
-window.dispatchEvent(new CustomEvent('turnkey-sdk-loaded', { 
-  detail: TurnkeySDK 
-}));
+// For browser context
+if (typeof window !== 'undefined') {
+  window.TurnkeySDK = TurnkeySDK;
+  
+  // Also dispatch custom event for cross-context communication
+  window.dispatchEvent(new CustomEvent('turnkey-sdk-loaded', { 
+    detail: TurnkeySDK 
+  }));
+}
 
-// Store in a global variable that webpack can access
+// For Service Worker context
+if (typeof self !== 'undefined') {
+  self.TurnkeySDK = TurnkeySDK;
+}
+
+// For Node.js context
 if (typeof global !== 'undefined') {
   global.TurnkeySDK = TurnkeySDK;
 }
 
-console.log('XOFE: TurnkeySDK assigned to window:', window.TurnkeySDK);
 console.log('XOFE: TurnkeySDK assigned to globalThis:', globalThis.TurnkeySDK);
+console.log('XOFE: TurnkeySDK assigned to self:', typeof self !== 'undefined' ? self.TurnkeySDK : 'self undefined');
+console.log('XOFE: TurnkeySDK assigned to window:', typeof window !== 'undefined' ? window.TurnkeySDK : 'window undefined');
 console.log('XOFE: TurnkeyBrowserClient available:', !!TurnkeyBrowserClient);
