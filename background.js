@@ -970,22 +970,30 @@ async function createSolanaWallet(config, subOrganizationId) {
 }
 
 function generateRealSolanaAddress(publicKeyBytes) {
-  // Convert Ed25519 public key to base58 Solana address
-  const charset = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-  let result = '';
+  // Proper base58 encoding for Solana addresses
+  const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
   
-  // Simple base58 encoding of the 32-byte public key
+  // Convert byte array to big integer
+  let num = BigInt(0);
   for (let i = 0; i < publicKeyBytes.length; i++) {
-    const byte = publicKeyBytes[i];
-    result += charset[byte % charset.length];
+    num = num * BigInt(256) + BigInt(publicKeyBytes[i]);
   }
   
-  // Ensure exactly 44 characters for Solana address format
-  while (result.length < 44) {
-    result += charset[Math.floor(Math.random() * charset.length)];
+  // Convert to base58
+  let result = '';
+  while (num > 0) {
+    const remainder = num % BigInt(58);
+    result = ALPHABET[Number(remainder)] + result;
+    num = num / BigInt(58);
   }
   
-  return result.substring(0, 44);
+  // Handle leading zeros
+  for (let i = 0; i < publicKeyBytes.length && publicKeyBytes[i] === 0; i++) {
+    result = ALPHABET[0] + result;
+  }
+  
+  console.log("XOFE: Generated proper base58 address:", result, "Length:", result.length);
+  return result;
 }
 
 async function signRealTurnkeyTransaction(data) {
