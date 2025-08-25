@@ -832,51 +832,141 @@ async function createRealTurnkeyWallet(data) {
 }
 
 async function createSubOrganization(config, data) {
-  console.log("XOFE: Creating Turnkey sub-organization...");
+  console.log("XOFE: Creating REAL Turnkey sub-organization...");
   
-  // This would use your Turnkey API key to create a sub-organization
-  // For now, we'll simulate the response structure
-  const response = {
-    subOrganizationId: `suborg-${Date.now()}`,
-    userId: `user-${Date.now()}`,
-    rootUsers: [{
-      userId: `user-${Date.now()}`,
-      userName: data.userName,
-      userEmail: data.userEmail
-    }]
-  };
-  
-  console.log("XOFE: Simulated sub-org creation:", response);
-  return response;
+  try {
+    // Real Turnkey API call
+    const response = await fetch(`${config.apiBaseUrl}/public/v1/submit/create_sub_organization`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Stamp-Org-Id': config.organizationId
+      },
+      body: JSON.stringify({
+        type: "ACTIVITY_TYPE_CREATE_SUB_ORGANIZATION",
+        organizationId: config.organizationId,
+        parameters: {
+          subOrganizationName: `XOFE-${Date.now()}`,
+          rootUsers: [{
+            userName: data.userName,
+            userEmail: data.userEmail,
+            authenticators: [{
+              authenticatorName: "XOFE-Passkey",
+              challenge: Array.from(crypto.getRandomValues(new Uint8Array(32))),
+              attestation: {
+                credentialId: "",
+                clientDataJson: "",
+                attestationObject: ""
+              }
+            }]
+          }],
+          rootQuorumThreshold: 1
+        }
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("XOFE: Turnkey API error:", response.status, errorText);
+      throw new Error(`Turnkey API error: ${response.status} - ${errorText}`);
+    }
+    
+    const result = await response.json();
+    console.log("XOFE: REAL Turnkey sub-org created:", result);
+    
+    return {
+      subOrganizationId: result.activity.result.createSubOrganizationResult.subOrganizationId,
+      userId: result.activity.result.createSubOrganizationResult.rootUsers[0].userId,
+      rootUsers: result.activity.result.createSubOrganizationResult.rootUsers
+    };
+    
+  } catch (error) {
+    console.error("XOFE: Real Turnkey sub-org creation failed:", error);
+    
+    // Fallback to simulated for now (but clearly marked)
+    console.log("XOFE: FALLING BACK TO SIMULATION - NOT REAL TURNKEY");
+    const response = {
+      subOrganizationId: `SIMULATED-suborg-${Date.now()}`,
+      userId: `SIMULATED-user-${Date.now()}`,
+      rootUsers: [{
+        userId: `SIMULATED-user-${Date.now()}`,
+        userName: data.userName,
+        userEmail: data.userEmail
+      }]
+    };
+    
+    return response;
+  }
 }
 
 async function createSolanaWallet(config, subOrganizationId) {
-  console.log("XOFE: Creating Solana wallet in sub-organization...");
+  console.log("XOFE: Creating REAL Turnkey Solana wallet...");
   
-  // Generate real Ed25519 keypair for Solana
-  const keyPair = await crypto.subtle.generateKey(
-    {
-      name: "Ed25519",
-      namedCurve: "Ed25519"
-    },
-    true,
-    ["sign", "verify"]
-  );
-  
-  // Export public key
-  const publicKey = await crypto.subtle.exportKey("raw", keyPair.publicKey);
-  const publicKeyArray = new Uint8Array(publicKey);
-  
-  // Generate real Solana address from public key
-  const address = generateRealSolanaAddress(publicKeyArray);
-  
-  console.log("XOFE: Real Solana address generated:", address);
-  
-  return {
-    walletId: `wallet-${Date.now()}`,
-    addresses: [address],
-    publicKey: Array.from(publicKeyArray)
-  };
+  try {
+    // Real Turnkey wallet creation API call
+    const response = await fetch(`${config.apiBaseUrl}/public/v1/submit/create_wallet`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Stamp-Org-Id': subOrganizationId
+      },
+      body: JSON.stringify({
+        type: "ACTIVITY_TYPE_CREATE_WALLET",
+        organizationId: subOrganizationId,
+        parameters: {
+          walletName: `XOFE-Solana-Wallet-${Date.now()}`,
+          accounts: [{
+            curve: "CURVE_ED25519",
+            pathFormat: "PATH_FORMAT_BIP32", 
+            path: "m/44'/501'/0'/0'", // Solana derivation path
+            addressFormat: "ADDRESS_FORMAT_SOLANA"
+          }]
+        }
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("XOFE: Turnkey wallet API error:", response.status, errorText);
+      throw new Error(`Turnkey wallet API error: ${response.status} - ${errorText}`);
+    }
+    
+    const result = await response.json();
+    console.log("XOFE: REAL Turnkey Solana wallet created:", result);
+    
+    return {
+      walletId: result.activity.result.createWalletResult.walletId,
+      addresses: result.activity.result.createWalletResult.addresses,
+      publicKey: null // Managed by Turnkey
+    };
+    
+  } catch (error) {
+    console.error("XOFE: Real Turnkey wallet creation failed:", error);
+    
+    // Fallback to local Ed25519 generation (clearly marked as simulation)
+    console.log("XOFE: FALLING BACK TO LOCAL ED25519 - NOT REAL TURNKEY");
+    
+    const keyPair = await crypto.subtle.generateKey(
+      {
+        name: "Ed25519",
+        namedCurve: "Ed25519"
+      },
+      true,
+      ["sign", "verify"]
+    );
+    
+    const publicKey = await crypto.subtle.exportKey("raw", keyPair.publicKey);
+    const publicKeyArray = new Uint8Array(publicKey);
+    const address = generateRealSolanaAddress(publicKeyArray);
+    
+    console.log("XOFE: SIMULATED Solana address generated:", address);
+    
+    return {
+      walletId: `SIMULATED-wallet-${Date.now()}`,
+      addresses: [address],
+      publicKey: Array.from(publicKeyArray)
+    };
+  }
 }
 
 function generateRealSolanaAddress(publicKeyBytes) {
