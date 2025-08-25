@@ -4,40 +4,8 @@ const SOL_MINT = "So11111111111111111111111111111111111111112";
 
 console.log("XOFE: Background script loaded - Chrome Store Ready v2.5.0");
 
-// Load Turnkey SDK at startup
-let TurnkeySDK = null;
-try {
-  console.log("XOFE: Loading Turnkey SDK in background script...");
-  
-  // For Service Workers, we need to check what context we're in
-  console.log("XOFE: Background context check - window:", typeof window);
-  console.log("XOFE: Background context check - globalThis:", typeof globalThis);
-  console.log("XOFE: Background context check - self:", typeof self);
-  
-  // Use importScripts for service worker
-  importScripts('lib/turnkey.bundle.js');
-  console.log("XOFE: ImportScripts completed");
-  
-  // In Service Worker context, check self and globalThis
-  if (typeof self !== 'undefined' && self.TurnkeySDK) {
-    TurnkeySDK = self.TurnkeySDK;
-    console.log("XOFE: Turnkey SDK loaded from self in background");
-  } else if (typeof globalThis !== 'undefined' && globalThis.TurnkeySDK) {
-    TurnkeySDK = globalThis.TurnkeySDK;
-    console.log("XOFE: Turnkey SDK loaded from globalThis in background");
-  } else if (typeof window !== 'undefined' && window.TurnkeySDK) {
-    TurnkeySDK = window.TurnkeySDK;
-    console.log("XOFE: Turnkey SDK loaded from window in background");
-  } else {
-    console.log("XOFE: Checking all available globals...");
-    console.log("XOFE: Available globals:", Object.keys(globalThis));
-    console.log("XOFE: TurnkeySDK on globalThis:", globalThis.TurnkeySDK);
-    console.log("XOFE: TurnkeySDK on self:", typeof self !== 'undefined' ? self.TurnkeySDK : 'self undefined');
-  }
-} catch (error) {
-  console.error("XOFE: Error loading Turnkey SDK in background:", error);
-  console.error("XOFE: Error stack:", error.stack);
-}
+// Note: Using embedded wallet with WebAuthn passkeys directly in content script
+// No need to load complex SDK in background script
 
 chrome.runtime.onInstalled.addListener(async () => {
   const { enabled } = await chrome.storage.local.get("enabled");
@@ -793,29 +761,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
               return;
             }
             
-            if (msg?.type === "WALLET_CREATE") {
-              console.log("XOFE: Handling WALLET_CREATE");
-              try {
-                const walletResult = await createTurnkeyWallet(msg.data);
-                sendResponse(walletResult);
-              } catch (error) {
-                console.error("XOFE: Error creating wallet:", error);
-                sendResponse({ success: false, error: error.message });
-              }
-              return;
-            }
-            
-            if (msg?.type === "WALLET_SIGN") {
-              console.log("XOFE: Handling WALLET_SIGN");
-              try {
-                const signResult = await signTurnkeyTransaction(msg.data);
-                sendResponse(signResult);
-              } catch (error) {
-                console.error("XOFE: Error signing transaction:", error);
-                sendResponse({ success: false, error: error.message });
-              }
-              return;
-            }
+            // Wallet operations now handled directly in content script with embedded wallet
 
       
       console.log("XOFE: Unknown message type:", msg?.type);
@@ -828,133 +774,4 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   return true;
 });
 
-// Turnkey wallet functions for background script
-async function createTurnkeyWallet(data) {
-  try {
-    console.log("XOFE: Creating Turnkey wallet in background...");
-    
-    if (!TurnkeySDK) {
-      throw new Error("Turnkey SDK not loaded in background script");
-    }
-    
-    console.log("XOFE: Using Turnkey SDK:", Object.keys(TurnkeySDK));
-    
-    // Turnkey configuration
-    const TURNKEY_CONFIG = {
-      organizationId: "7df2c24f-4185-40e7-b16b-68600a5659c8",
-      apiBaseUrl: "https://api.turnkey.com",
-      rpId: "x.com"
-    };
-    
-    // Create Turnkey client
-    console.log("XOFE: Creating Turnkey browser client...");
-    const client = new TurnkeySDK.TurnkeyBrowserClient({
-      baseUrl: TURNKEY_CONFIG.apiBaseUrl,
-      defaultOrganizationId: TURNKEY_CONFIG.organizationId,
-    });
-    
-    // Create WebAuthn stamper
-    console.log("XOFE: Creating WebAuthn stamper...");
-    const stamper = new TurnkeySDK.WebauthnStamper({
-      rpId: TURNKEY_CONFIG.rpId,
-    });
-    
-    // Create sub-organization
-    console.log("XOFE: Creating sub-organization...");
-    const subOrgResult = await client.createSubOrganization({
-      subOrganizationName: `XOFE-SubOrg-${Date.now()}`,
-      rootUsers: [{
-        userName: data.userName,
-        userEmail: data.userEmail,
-        authenticators: [{
-          authenticatorName: "XOFE-Passkey"
-        }]
-      }],
-      rootQuorumThreshold: 1
-    }, stamper);
-    
-    console.log("XOFE: Sub-organization created:", subOrgResult);
-    
-    // Create Solana wallet
-    console.log("XOFE: Creating Solana wallet...");
-    const walletResult = await client.createWallet({
-      organizationId: subOrgResult.subOrganizationId,
-      walletName: "XOFE-Solana-Wallet",
-      accounts: [{
-        curve: "CURVE_ED25519",
-        pathFormat: "PATH_FORMAT_BIP32",
-        path: "m/44'/501'/0'/0'",
-        addressFormat: "ADDRESS_FORMAT_SOLANA"
-      }]
-    }, stamper);
-    
-    console.log("XOFE: Wallet created:", walletResult);
-    
-    const address = walletResult.addresses[0];
-    
-    return {
-      success: true,
-      address: address,
-      subOrganizationId: subOrgResult.subOrganizationId,
-      userId: subOrgResult.rootUsers[0].userId,
-      userEmail: data.userEmail
-    };
-    
-  } catch (error) {
-    console.error("XOFE: Turnkey wallet creation failed:", error);
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-}
-
-async function signTurnkeyTransaction(data) {
-  try {
-    console.log("XOFE: Signing transaction with Turnkey in background...");
-    
-    if (!TurnkeySDK) {
-      throw new Error("Turnkey SDK not loaded in background script");
-    }
-    
-    // Turnkey configuration
-    const TURNKEY_CONFIG = {
-      apiBaseUrl: "https://api.turnkey.com",
-      rpId: "x.com"
-    };
-    
-    // Create Turnkey client
-    const client = new TurnkeySDK.TurnkeyBrowserClient({
-      baseUrl: TURNKEY_CONFIG.apiBaseUrl,
-      defaultOrganizationId: data.subOrganizationId,
-    });
-    
-    // Create WebAuthn stamper
-    const stamper = new TurnkeySDK.WebauthnStamper({
-      rpId: TURNKEY_CONFIG.rpId,
-    });
-    
-    // Sign the transaction
-    console.log("XOFE: Submitting transaction for signing...");
-    const signResult = await client.signTransaction({
-      organizationId: data.subOrganizationId,
-      type: "TRANSACTION_TYPE_SOLANA",
-      unsignedTransaction: data.transaction,
-      signWith: data.address
-    }, stamper);
-    
-    console.log("XOFE: Transaction signed with Turnkey:", signResult);
-    
-    return {
-      success: true,
-      signature: signResult.signedTransaction
-    };
-    
-  } catch (error) {
-    console.error("XOFE: Turnkey transaction signing failed:", error);
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-}
+// Embedded wallet operations handled in content script
