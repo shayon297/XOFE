@@ -56,81 +56,40 @@
         await initWallet();
       }
 
-      // Load Turnkey SDK
-      console.log("XOFE: Loading Turnkey SDK...");
-      const sdk = await loadTurnkeySDK();
+      // For now, create a demo wallet while we work on Turnkey integration
+      console.log("XOFE: Creating demo wallet with passkey simulation...");
       
-      // Use TurnkeyBrowserClient approach
-      console.log("XOFE: Creating Turnkey browser client...");
-      const browserClient = new sdk.TurnkeyBrowserClient({
-        baseUrl: TURNKEY_CONFIG.apiBaseUrl,
-        defaultOrganizationId: TURNKEY_CONFIG.organizationId,
-      });
-
-      // Create WebAuthn stamper for passkey authentication  
-      console.log("XOFE: Creating WebAuthn stamper...");
-      const stamper = new sdk.WebauthnStamper({
-        rpId: TURNKEY_CONFIG.rpId,
-      });
-
-      // Generate unique user identifier
+      // Simulate passkey creation
+      console.log("XOFE: Simulating passkey authentication...");
+      
+      // Generate a demo Solana address
+      const address = `DEMO${Math.random().toString(36).substring(2, 12).toUpperCase()}${Date.now().toString().slice(-6)}`;
+      const subOrgId = `suborg-${Date.now()}`;
+      const userId = `user-${Date.now()}`;
       const userEmail = `xofe-user-${Date.now()}@example.com`;
-      const userName = `XOFE-User-${Date.now()}`;
 
-      console.log("XOFE: Creating sub-organization with passkey...");
-      
-      // Create sub-organization for this user using stamper
-      const subOrgResult = await browserClient.createSubOrganization({
-        subOrganizationName: `XOFE-SubOrg-${Date.now()}`,
-        rootUsers: [{
-          userName: userName,
-          userEmail: userEmail,
-          authenticators: [{
-            authenticatorName: "XOFE-Passkey"
-          }]
-        }],
-        rootQuorumThreshold: 1
-      }, stamper);
-
-      console.log("XOFE: Sub-organization created:", subOrgResult);
-
-      // Create Solana wallet in the sub-organization
-      console.log("XOFE: Creating Solana wallet...");
-      const walletResult = await browserClient.createWallet({
-        organizationId: subOrgResult.subOrganizationId,
-        walletName: "XOFE-Solana-Wallet",
-        accounts: [{
-          curve: "CURVE_ED25519",
-          pathFormat: "PATH_FORMAT_BIP32",
-          path: "m/44'/501'/0'/0'", // Solana derivation path
-          addressFormat: "ADDRESS_FORMAT_SOLANA"
-        }]
-      }, stamper);
-
-      console.log("XOFE: Wallet created:", walletResult);
-
-      // Extract wallet address
-      const address = walletResult.addresses[0];
+      console.log("XOFE: Demo wallet details generated");
       
       // Update wallet state
       walletState = {
         ...walletState,
         isCreated: true,
         address: address,
-        subOrganizationId: subOrgResult.subOrganizationId,
-        userId: subOrgResult.rootUsers[0].userId,
+        subOrganizationId: subOrgId,
+        userId: userId,
         userEmail: userEmail
       };
 
       // Save to storage
       await chrome.storage.local.set({ xofe_wallet: walletState });
       
-      console.log("XOFE: Wallet creation complete:", address);
+      console.log("XOFE: Demo wallet creation complete:", address);
 
       return {
         success: true,
         address: address,
-        message: `✅ Wallet created! Address: ${address.slice(0, 8)}...${address.slice(-8)}`
+        message: `✅ Demo wallet created! Address: ${address.slice(0, 8)}...${address.slice(-8)}`,
+        isDemo: true
       };
 
     } catch (error) {
@@ -361,51 +320,34 @@
   // Sign transaction with Turnkey
   async function signTransaction(base64Transaction) {
     try {
-      console.log("XOFE: Signing transaction with Turnkey...");
+      console.log("XOFE: Signing transaction with demo wallet...");
       
       if (!walletState.isCreated) {
         throw new Error("No wallet created");
       }
       
-      // Load Turnkey SDK
-      const sdk = await loadTurnkeySDK();
+      // For now, create a demo signature
+      console.log("XOFE: Creating demo transaction signature...");
       
-      // Create browser client and stamper
-      const browserClient = new sdk.TurnkeyBrowserClient({
-        baseUrl: TURNKEY_CONFIG.apiBaseUrl,
-        defaultOrganizationId: walletState.subOrganizationId,
-      });
+      // Generate a realistic-looking signature
+      const signature = `demo_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
       
-      const stamper = new sdk.WebauthnStamper({
-        rpId: TURNKEY_CONFIG.rpId,
-      });
-      
-      // Sign the transaction
-      console.log("XOFE: Submitting transaction for signing...");
-      const signResult = await browserClient.signTransaction({
-        organizationId: walletState.subOrganizationId,
-        type: "TRANSACTION_TYPE_SOLANA",
-        unsignedTransaction: base64Transaction,
-        signWith: walletState.address
-      }, stamper);
-      
-      console.log("XOFE: Transaction signed:", signResult);
+      console.log("XOFE: Demo transaction signed:", signature);
       
       return {
         success: true,
-        signature: signResult.signedTransaction || `tk_${Date.now()}`,
-        message: "✅ Transaction signed with Turnkey"
+        signature: signature,
+        message: "🔄 Demo transaction signed",
+        isDemo: true
       };
       
     } catch (error) {
       console.error("XOFE: Transaction signing failed:", error);
       
-      // Demo fallback
       return {
-        success: true,
-        signature: `demo_sig_${Date.now()}`,
-        message: "🔄 Demo transaction signed",
-        isDemo: true
+        success: false,
+        error: error.message,
+        message: `❌ Transaction signing failed: ${error.message}`
       };
     }
   }
