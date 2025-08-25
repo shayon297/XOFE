@@ -147,52 +147,81 @@
   // Load Turnkey SDK
   async function loadTurnkeySDK() {
     return new Promise((resolve, reject) => {
-      if (window.TurnkeySDK) {
-        console.log("XOFE: Turnkey SDK already loaded");
+      // Check if already available in different contexts
+      if (window.TurnkeySDK && window.TurnkeySDK.TurnkeyBrowserClient) {
+        console.log("XOFE: Turnkey SDK already loaded on window");
         resolve(window.TurnkeySDK);
+        return;
+      }
+      
+      if (globalThis.TurnkeySDK && globalThis.TurnkeySDK.TurnkeyBrowserClient) {
+        console.log("XOFE: Turnkey SDK already loaded on globalThis");
+        resolve(globalThis.TurnkeySDK);
         return;
       }
 
       console.log("XOFE: Loading Turnkey bundle...");
+      
+      // Listen for custom event
+      const handleSDKLoaded = (event) => {
+        console.log("XOFE: Received turnkey-sdk-loaded event");
+        const sdk = event.detail;
+        if (sdk && sdk.TurnkeyBrowserClient) {
+          console.log("XOFE: Turnkey SDK loaded via custom event");
+          window.removeEventListener('turnkey-sdk-loaded', handleSDKLoaded);
+          resolve(sdk);
+        }
+      };
+      
+      window.addEventListener('turnkey-sdk-loaded', handleSDKLoaded);
+      
+      // Load the script
       const script = document.createElement('script');
       script.src = chrome.runtime.getURL('lib/turnkey.bundle.js');
       
       script.onload = () => {
-        console.log("XOFE: Bundle script loaded, checking for TurnkeySDK...");
+        console.log("XOFE: Bundle script loaded");
         
-        // Check immediately first
-        if (window.TurnkeySDK) {
-          console.log("XOFE: Turnkey SDK available immediately");
-          resolve(window.TurnkeySDK);
-          return;
-        }
-        
-        // Then check with timeout
-        setTimeout(() => {
-          console.log("XOFE: Checking TurnkeySDK after timeout...");
+        // Check all possible locations
+        const checkForSDK = (attempt = 1, maxAttempts = 5) => {
+          console.log(`XOFE: Checking for TurnkeySDK (attempt ${attempt}/${maxAttempts})`);
           console.log("XOFE: window.TurnkeySDK:", window.TurnkeySDK);
+          console.log("XOFE: globalThis.TurnkeySDK:", globalThis.TurnkeySDK);
           
+          let sdk = null;
           if (window.TurnkeySDK && window.TurnkeySDK.TurnkeyBrowserClient) {
-            console.log("XOFE: Turnkey SDK loaded successfully");
-            resolve(window.TurnkeySDK);
-          } else {
-            console.log("XOFE: TurnkeySDK not found, trying longer timeout...");
-            
-            // Try one more time with longer timeout
-            setTimeout(() => {
-              if (window.TurnkeySDK && window.TurnkeySDK.TurnkeyBrowserClient) {
-                console.log("XOFE: Turnkey SDK loaded after extended timeout");
-                resolve(window.TurnkeySDK);
-              } else {
-                reject(new Error("Turnkey SDK not available after load"));
-              }
-            }, 500);
+            sdk = window.TurnkeySDK;
+          } else if (globalThis.TurnkeySDK && globalThis.TurnkeySDK.TurnkeyBrowserClient) {
+            sdk = globalThis.TurnkeySDK;
           }
-        }, 100);
+          
+          if (sdk) {
+            console.log("XOFE: Turnkey SDK found!");
+            window.removeEventListener('turnkey-sdk-loaded', handleSDKLoaded);
+            resolve(sdk);
+          } else if (attempt < maxAttempts) {
+            setTimeout(() => checkForSDK(attempt + 1, maxAttempts), 300 * attempt);
+          } else {
+            window.removeEventListener('turnkey-sdk-loaded', handleSDKLoaded);
+            reject(new Error("Turnkey SDK not available after multiple attempts"));
+          }
+        };
+        
+        checkForSDK();
       };
       
-      script.onerror = () => reject(new Error("Failed to load Turnkey SDK"));
+      script.onerror = () => {
+        window.removeEventListener('turnkey-sdk-loaded', handleSDKLoaded);
+        reject(new Error("Failed to load Turnkey SDK"));
+      };
+      
       document.head.appendChild(script);
+      
+      // Safety timeout
+      setTimeout(() => {
+        window.removeEventListener('turnkey-sdk-loaded', handleSDKLoaded);
+        reject(new Error("Turnkey SDK loading timeout"));
+      }, 10000);
     });
   }
 
