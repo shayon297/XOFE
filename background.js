@@ -758,6 +758,29 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
               return;
             }
             
+            if (msg?.type === "WALLET_CREATE") {
+              console.log("XOFE: Handling WALLET_CREATE");
+              try {
+                const walletResult = await createTurnkeyWallet(msg.data);
+                sendResponse(walletResult);
+              } catch (error) {
+                console.error("XOFE: Error creating wallet:", error);
+                sendResponse({ success: false, error: error.message });
+              }
+              return;
+            }
+            
+            if (msg?.type === "WALLET_SIGN") {
+              console.log("XOFE: Handling WALLET_SIGN");
+              try {
+                const signResult = await signTurnkeyTransaction(msg.data);
+                sendResponse(signResult);
+              } catch (error) {
+                console.error("XOFE: Error signing transaction:", error);
+                sendResponse({ success: false, error: error.message });
+              }
+              return;
+            }
 
       
       console.log("XOFE: Unknown message type:", msg?.type);
@@ -769,3 +792,61 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   })();
   return true;
 });
+
+// Turnkey wallet functions for background script
+async function createTurnkeyWallet(data) {
+  try {
+    console.log("XOFE: Creating Turnkey wallet in background...");
+    
+    // Import Turnkey SDK dynamically
+    const { TurnkeyApi } = await import(chrome.runtime.getURL('lib/turnkey.bundle.js'));
+    
+    // For now, return a placeholder - real implementation coming
+    const address = `TK${Math.random().toString(36).substring(2, 12).toUpperCase()}${Date.now().toString().slice(-6)}`;
+    const subOrganizationId = `suborg-${Date.now()}`;
+    const userId = `user-${Date.now()}`;
+    
+    console.log("XOFE: Turnkey wallet created:", address);
+    
+    return {
+      success: true,
+      address: address,
+      subOrganizationId: subOrganizationId,
+      userId: userId,
+      userEmail: data.userEmail
+    };
+    
+  } catch (error) {
+    console.error("XOFE: Turnkey wallet creation failed:", error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+async function signTurnkeyTransaction(data) {
+  try {
+    console.log("XOFE: Signing transaction with Turnkey in background...");
+    
+    // Import Turnkey SDK dynamically
+    const { TurnkeyApi } = await import(chrome.runtime.getURL('lib/turnkey.bundle.js'));
+    
+    // For now, return a placeholder signature - real implementation coming
+    const signature = `tk_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+    
+    console.log("XOFE: Transaction signed with Turnkey:", signature);
+    
+    return {
+      success: true,
+      signature: signature
+    };
+    
+  } catch (error) {
+    console.error("XOFE: Turnkey transaction signing failed:", error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}

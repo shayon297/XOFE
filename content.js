@@ -1339,10 +1339,10 @@
   // Initialize embedded wallet
   async function initializeWallet() {
     try {
-      // Initialize simple wallet module
-      if (window.XOFESimpleWallet) {
-        await window.XOFESimpleWallet.init();
-        console.log("XOFE: Simple Wallet module initialized");
+          // Initialize wallet service
+    if (window.XOFESimpleWallet) {
+      await window.XOFESimpleWallet.init();
+      console.log("XOFE: Wallet Service initialized");
         
         // Inject wallet UI into X sidebar
         injectWalletUI();
