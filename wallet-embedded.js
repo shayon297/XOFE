@@ -19,11 +19,17 @@
     try {
       console.log("XOFE: Initializing embedded wallet system...");
       
-      // Load existing wallet from storage
-      const stored = await chrome.storage.local.get(['xofe_embedded_wallet']);
-      if (stored.xofe_embedded_wallet) {
-        walletState = { ...walletState, ...stored.xofe_embedded_wallet };
-        console.log("XOFE: Loaded existing embedded wallet:", walletState.address);
+      // Load existing wallet from storage via message passing
+      try {
+        const stored = await chrome.runtime.sendMessage({
+          type: 'GET_WALLET_STATE'
+        });
+        if (stored && stored.success && stored.walletState) {
+          walletState = { ...walletState, ...stored.walletState };
+          console.log("XOFE: Loaded existing embedded wallet:", walletState.address);
+        }
+      } catch (error) {
+        console.log("XOFE: No existing wallet found or storage unavailable");
       }
       
       walletState.isInitialized = true;
@@ -69,8 +75,11 @@
           walletId: response.walletId
         };
 
-        // Save to storage
-        await chrome.storage.local.set({ xofe_embedded_wallet: walletState });
+        // Save to storage via message passing
+        await chrome.runtime.sendMessage({
+          type: 'SAVE_WALLET_STATE',
+          walletState: walletState
+        });
         
         console.log("XOFE: Real Turnkey wallet creation complete:", response.address);
 
@@ -140,7 +149,10 @@
       if (fundingResult.success) {
         // Update balance after successful payment
         walletState.balance += amount;
-        await chrome.storage.local.set({ xofe_embedded_wallet: walletState });
+        await chrome.runtime.sendMessage({
+          type: 'SAVE_WALLET_STATE',
+          walletState: walletState
+        });
         
         return {
           success: true,
@@ -158,7 +170,10 @@
       // For testing, allow demo funding
       console.log("XOFE: Using demo funding as fallback");
       walletState.balance += amount;
-      await chrome.storage.local.set({ xofe_embedded_wallet: walletState });
+      await chrome.runtime.sendMessage({
+        type: 'SAVE_WALLET_STATE',
+        walletState: walletState
+      });
       
       return {
         success: true,
