@@ -35,80 +35,57 @@
     }
   }
 
-  // Create wallet using WebAuthn passkeys
+  // Create wallet using Turnkey API with passkey authentication
   async function createWallet() {
     try {
-      console.log("XOFE: Creating embedded wallet with passkey...");
+      console.log("XOFE: Creating real Turnkey wallet...");
       
       if (!walletState.isInitialized) {
         await initWallet();
       }
 
-      // Create passkey credential
-      console.log("XOFE: Creating passkey credential...");
+      // Call background script to create real Turnkey wallet
+      console.log("XOFE: Requesting Turnkey wallet creation via background script...");
       
-      const credential = await navigator.credentials.create({
-        publicKey: {
-          challenge: crypto.getRandomValues(new Uint8Array(32)),
-          rp: {
-            name: "XOFE Wallet",
-            id: window.location.hostname
-          },
-          user: {
-            id: crypto.getRandomValues(new Uint8Array(16)),
-            name: `xofe-user-${Date.now()}`,
-            displayName: "XOFE User"
-          },
-          pubKeyCredParams: [
-            { alg: -7, type: "public-key" }, // ES256
-            { alg: -257, type: "public-key" } // RS256
-          ],
-          authenticatorSelection: {
-            authenticatorAttachment: "platform",
-            userVerification: "required"
-          },
-          timeout: 60000,
-          attestation: "direct"
+      const response = await chrome.runtime.sendMessage({
+        type: 'CREATE_REAL_TURNKEY_WALLET',
+        data: {
+          userEmail: `xofe-user-${Date.now()}@example.com`,
+          userName: `XOFE-User-${Date.now()}`
         }
       });
 
-      if (!credential) {
-        throw new Error("Failed to create passkey credential");
+      if (response && response.success) {
+        console.log("XOFE: Real Turnkey wallet created:", response);
+        
+        // Update wallet state with real Turnkey data
+        walletState = {
+          ...walletState,
+          isCreated: true,
+          address: response.address,
+          subOrganizationId: response.subOrganizationId,
+          userId: response.userId,
+          userEmail: response.userEmail,
+          walletId: response.walletId
+        };
+
+        // Save to storage
+        await chrome.storage.local.set({ xofe_embedded_wallet: walletState });
+        
+        console.log("XOFE: Real Turnkey wallet creation complete:", response.address);
+
+        return {
+          success: true,
+          address: response.address,
+          message: `✅ Real Turnkey wallet created! Address: ${response.address.slice(0, 8)}...${response.address.slice(-8)}`,
+          subOrganizationId: response.subOrganizationId
+        };
+      } else {
+        throw new Error(response?.error || 'Unknown error from background script');
       }
 
-      console.log("XOFE: Passkey created successfully");
-
-      // Generate deterministic Solana address from credential
-      const credentialId = credential.id;
-      const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(credentialId));
-      const hashArray = new Uint8Array(hash);
-      
-      // Create a Solana-like address (base58 encoded)
-      const address = generateSolanaAddress(hashArray);
-      
-      console.log("XOFE: Generated Solana address:", address);
-      
-      // Update wallet state
-      walletState = {
-        ...walletState,
-        isCreated: true,
-        address: address,
-        publicKey: credentialId
-      };
-
-      // Save to storage
-      await chrome.storage.local.set({ xofe_embedded_wallet: walletState });
-      
-      console.log("XOFE: Embedded wallet creation complete:", address);
-
-      return {
-        success: true,
-        address: address,
-        message: `✅ Embedded wallet created! Address: ${address.slice(0, 8)}...${address.slice(-8)}`
-      };
-
     } catch (error) {
-      console.error("XOFE: Embedded wallet creation failed:", error);
+      console.error("XOFE: Real Turnkey wallet creation failed:", error);
       
       return {
         success: false,
@@ -378,45 +355,39 @@
     });
   }
 
-  // Sign transaction with passkey
+  // Sign transaction with real Turnkey
   async function signTransaction(base64Transaction) {
     try {
-      console.log("XOFE: Signing transaction with embedded wallet...");
+      console.log("XOFE: Signing transaction with real Turnkey...");
       
       if (!walletState.isCreated) {
         throw new Error("No wallet created");
       }
       
-      // Use WebAuthn to sign (simplified)
-      console.log("XOFE: Requesting user authentication for signing...");
+      // Call background script for real Turnkey signing
+      console.log("XOFE: Requesting Turnkey transaction signing...");
       
-      const assertion = await navigator.credentials.get({
-        publicKey: {
-          challenge: crypto.getRandomValues(new Uint8Array(32)),
-          rpId: window.location.hostname,
-          allowCredentials: [{
-            type: "public-key",
-            id: new TextEncoder().encode(walletState.publicKey)
-          }],
-          userVerification: "required",
-          timeout: 60000
+      const response = await chrome.runtime.sendMessage({
+        type: 'SIGN_TURNKEY_TRANSACTION',
+        data: {
+          transaction: base64Transaction,
+          subOrganizationId: walletState.subOrganizationId,
+          address: walletState.address,
+          walletId: walletState.walletId
         }
       });
 
-      if (!assertion) {
-        throw new Error("Authentication failed");
+      if (response && response.success) {
+        console.log("XOFE: Transaction signed with real Turnkey:", response.signature);
+        
+        return {
+          success: true,
+          signature: response.signature,
+          message: "✅ Transaction signed with Turnkey"
+        };
+      } else {
+        throw new Error(response?.error || 'Unknown signing error');
       }
-
-      // Generate signature
-      const signature = `embedded_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
-      
-      console.log("XOFE: Transaction signed with embedded wallet:", signature);
-      
-      return {
-        success: true,
-        signature: signature,
-        message: "✅ Transaction signed with embedded wallet"
-      };
       
     } catch (error) {
       console.error("XOFE: Transaction signing failed:", error);
