@@ -1,7 +1,7 @@
 // content.js - simplified version
 (() => {
   const BASE58_PATTERN = /[1-9A-HJ-NP-Za-km-z]{32,44}/;
-  
+
   let enabled = true;
   let tooltipEl = null;
   let inpageInjected = false;
@@ -150,7 +150,7 @@
     if (priceImpact > 0) {
       slippageEl.textContent = `slippage: ${(priceImpact * 100).toFixed(2)}%`;
       tradeInfoEl.style.display = "block";
-    } else {
+      } else {
       slippageEl.textContent = "";
     }
   }
@@ -541,7 +541,7 @@
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div style="font-weight:600;font-size:14px;">
             <span id="mp-ticker">XOFE</span>
-          </div>
+      </div>
           <button id="mp-close" style="all:unset;cursor:pointer;font-size:14px;opacity:0.7;padding:2px;">✕</button>
         </div>
         <div style="margin-bottom:8px;opacity:0.8;font-size:12px;">
@@ -588,12 +588,12 @@
         <div id="mp-trade-info" style="margin-bottom:8px;font-size:11px;opacity:0.8;display:none;">
           <div id="mp-slippage" style="margin-bottom:2px;"></div>
           <div id="mp-volume" style="margin-bottom:2px;"></div>
-        </div>
-        <div style="display:flex;gap:8px;">
+      </div>
+      <div style="display:flex;gap:8px;">
           <button id="mp-buy" style="width:100%;padding:12px;border-radius:6px;border:0;cursor:pointer;background:#ffffff;color:#000000;font-weight:600;font-size:13px;">
             Buy
           </button>
-        </div>
+      </div>
         <div id="mp-status" style="margin-top:8px;font-size:12px;display:none;"></div>
       </div>
     `;
